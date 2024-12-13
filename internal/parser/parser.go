@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bufio"
@@ -9,28 +9,28 @@ import (
 	"strings"
 )
 
-func main() {
-	logs, err := readQueries()
+func Parse(filename string) ([]Query, error) {
+	logs, err := readQueries(filename)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parser.parse: %w", err)
 	}
 	queries, err := filterWriteQueries(logs)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parser.parse: %w", err)
 	}
-	selectQueries, err := parseSelectQueries(queries)
+	selectQueries, err := findSelectQueries(queries)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parser.parse: %w", err)
 	}
 	queriesSub, err := substituteBindings(selectQueries)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("parser.parse: %w", err)
 	}
-	fmt.Printf("%#v\n", queriesSub)
+	return queriesSub, nil
 }
 
-func readQueries() ([]string, error) {
-	f, err := os.Open("queries.log")
+func readQueries(filename string) ([]string, error) {
+	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("readQueries: %w", err)
 	}
@@ -65,7 +65,7 @@ func filterWriteQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
-func parseSelectQueries(logLines []string) ([]string, error) {
+func findSelectQueries(logLines []string) ([]string, error) {
 	queries := make([]string, 0)
 	for _, line := range logLines {
 		idx := strings.Index(line, "select")
