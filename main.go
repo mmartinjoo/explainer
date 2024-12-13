@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"slices"
@@ -22,6 +23,7 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("%#v\n", selectQueries)
+	_, _ = substituteBindings(selectQueries)
 }
 
 func readQueries() ([]string, error) {
@@ -67,7 +69,60 @@ func parseSelectQueries(logLines []string) ([]string, error) {
 		if idx == -1 {
 			continue
 		}
-		queries = append(queries, line[idx:])
+		q := strings.Trim(line[idx:], " ")
+		queries = append(queries, q)
 	}
 	return queries, nil
+}
+
+func substituteBindings(selectQueries []string) ([]string, error) {
+	queries := make([]string, 0)
+	for _, q := range selectQueries {
+		if !hasBindings(q) {
+			queries = append(queries, q)
+			continue
+		}
+		bindings, err := getBindings(q)
+		if err != nil {
+			return nil, fmt.Errorf("substituteBindings: %w", err)
+		}
+		fmt.Printf("bindings\n")
+		fmt.Printf("%#v\n", bindings)
+	}
+	return queries, nil
+}
+
+func hasBindings(query string) bool {
+	return strings.Index(query, "]") == len(query)-1
+}
+
+func getBindings(query string) ([]string, error) {
+	idx := strings.LastIndex(query, "[")
+	if idx == -1 {
+		return nil, fmt.Errorf("trying to parse bindings but \"[\" not found in query: %s", query)
+	}
+
+	// [10,20,30]
+	bindingsStr := query[idx:]
+
+	// Only one binding: [10]
+	if !strings.Contains(bindingsStr, ",") {
+		b := bindingsStr[1 : len(bindingsStr)-1]
+		return []string{b}, nil
+	}
+
+	bindings := make([]string, 0)
+	buf := bytes.Buffer{}
+	for _, c := range bindingsStr {
+		if c == '[' {
+			continue
+		}
+		if c == ',' || c == ']' {
+			bindings = append(bindings, buf.String())
+			buf.Reset()
+			continue
+		}
+		buf.WriteRune(c)
+	}
+	return bindings, nil
 }
