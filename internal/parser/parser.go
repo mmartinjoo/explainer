@@ -4,27 +4,28 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/mmartinjoo/explainer/internal/platform"
 	"os"
 	"slices"
 	"strings"
 )
 
-func Parse(filename string) ([]Query, error) {
+func Parse(filename string) ([]platform.Query, error) {
 	logs, err := readQueries(filename)
 	if err != nil {
-		return nil, fmt.Errorf("parser.parse: %w", err)
+		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
 	queries, err := filterWriteQueries(logs)
 	if err != nil {
-		return nil, fmt.Errorf("parser.parse: %w", err)
+		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
 	selectQueries, err := findSelectQueries(queries)
 	if err != nil {
-		return nil, fmt.Errorf("parser.parse: %w", err)
+		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
 	queriesSub, err := substituteBindings(selectQueries)
 	if err != nil {
-		return nil, fmt.Errorf("parser.parse: %w", err)
+		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
 	return queriesSub, nil
 }
@@ -78,11 +79,11 @@ func findSelectQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
-func substituteBindings(selectQueries []string) ([]Query, error) {
-	queries := make([]Query, 0)
+func substituteBindings(selectQueries []string) ([]platform.Query, error) {
+	queries := make([]platform.Query, 0)
 	for _, q := range selectQueries {
 		if !hasBindings(q) {
-			queries = append(queries, newQuery(q))
+			queries = append(queries, platform.NewQuery(q))
 			continue
 		}
 		bindings, err := getBindings(q)
@@ -95,7 +96,7 @@ func substituteBindings(selectQueries []string) ([]Query, error) {
 		}
 		idx := strings.LastIndex(q, "[")
 		sql := strings.Trim(q[:idx], " ")
-		queries = append(queries, newQueryWithBindings(sql, bindings))
+		queries = append(queries, platform.NewQueryWithBindings(sql, bindings))
 	}
 	return queries, nil
 }
@@ -133,22 +134,4 @@ func getBindings(query string) ([]string, error) {
 		buf.WriteRune(c)
 	}
 	return bindings, nil
-}
-
-type Query struct {
-	sql      string
-	bindings []string
-}
-
-func newQuery(sql string) Query {
-	return Query{
-		sql:      sql,
-		bindings: make([]string, 0),
-	}
-}
-
-func newQueryWithBindings(sql string, bindings []string) Query {
-	q := newQuery(sql)
-	q.bindings = bindings
-	return q
 }
