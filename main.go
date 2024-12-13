@@ -22,8 +22,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%#v\n", selectQueries)
-	_, _ = substituteBindings(selectQueries)
+	queriesSub, err := substituteBindings(selectQueries)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%#v\n", queriesSub)
 }
 
 func readQueries() ([]string, error) {
@@ -75,23 +78,24 @@ func parseSelectQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
-func substituteBindings(selectQueries []string) ([]string, error) {
-	queries := make([]string, 0)
+func substituteBindings(selectQueries []string) ([]Query, error) {
+	queries := make([]Query, 0)
 	for _, q := range selectQueries {
 		if !hasBindings(q) {
-			queries = append(queries, q)
+			queries = append(queries, newQuery(q))
 			continue
 		}
 		bindings, err := getBindings(q)
 		if err != nil {
 			return nil, fmt.Errorf("substituteBindings: %w", err)
 		}
-		fmt.Printf("bindings\n")
-		fmt.Printf("%#v\n", bindings)
 		c := strings.Count(q, "?")
 		if c != len(bindings) {
 			return nil, fmt.Errorf("argument number mismatch: %d \"?\" and the following bindings: %v", c, bindings)
 		}
+		idx := strings.LastIndex(q, "[")
+		sql := strings.Trim(q[:idx], " ")
+		queries = append(queries, newQueryWithBindings(sql, bindings))
 	}
 	return queries, nil
 }
@@ -129,4 +133,22 @@ func getBindings(query string) ([]string, error) {
 		buf.WriteRune(c)
 	}
 	return bindings, nil
+}
+
+type Query struct {
+	sql      string
+	bindings []string
+}
+
+func newQuery(sql string) Query {
+	return Query{
+		sql:      sql,
+		bindings: make([]string, 0),
+	}
+}
+
+func newQueryWithBindings(sql string, bindings []string) Query {
+	q := newQuery(sql)
+	q.bindings = bindings
+	return q
 }
