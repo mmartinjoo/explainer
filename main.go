@@ -13,11 +13,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	queries, err := parseQueries(logs)
+	queries, err := filterWriteQueries(logs)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%#v\n", queries)
+	selectQueries, err := parseSelectQueries(queries)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%#v\n", selectQueries)
 }
 
 func readQueries() ([]string, error) {
@@ -33,7 +37,7 @@ func readQueries() ([]string, error) {
 	return queries, nil
 }
 
-func parseQueries(logLines []string) ([]string, error) {
+func filterWriteQueries(logLines []string) ([]string, error) {
 	writeCmds := []string{"insert", "update", "delete"}
 	queries := make([]string, 0)
 	for _, line := range logLines {
@@ -52,6 +56,18 @@ func parseQueries(logLines []string) ([]string, error) {
 			continue
 		}
 		queries = append(queries, line)
+	}
+	return queries, nil
+}
+
+func parseSelectQueries(logLines []string) ([]string, error) {
+	queries := make([]string, 0)
+	for _, line := range logLines {
+		idx := strings.Index(line, "select")
+		if idx == -1 {
+			continue
+		}
+		queries = append(queries, line[idx:])
 	}
 	return queries, nil
 }
