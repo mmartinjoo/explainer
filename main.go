@@ -88,6 +88,10 @@ func substituteBindings(selectQueries []string) ([]string, error) {
 		}
 		fmt.Printf("bindings\n")
 		fmt.Printf("%#v\n", bindings)
+		c := strings.Count(q, "?")
+		if c != len(bindings) {
+			return nil, fmt.Errorf("argument number mismatch: %d \"?\" and the following bindings: %v", c, bindings)
+		}
 	}
 	return queries, nil
 }
