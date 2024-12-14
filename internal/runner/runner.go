@@ -93,5 +93,5 @@ func newTooManyConnectionsError(idx int, sql string) TooManyConnectionsError {
 }
 
 func (e TooManyConnectionsError) Error() string {
-	return fmt.Sprintf("database returned a 'Too many connections' error after %d queries. Please try again with a smaller log file or set a limit with the '--limit' option. last query: %s", e.idx, e.sql)
+	return fmt.Sprintf("database returned a 'Too many connections' error after %d queries. Please try again with a smaller log file or set a limit with the '--limit' option. last query: %s\n To increase the limit temporarily run: \"SET GLOBAL max_connections = 255;\"", e.idx, e.sql)
 }
