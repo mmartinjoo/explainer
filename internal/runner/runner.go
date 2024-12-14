@@ -8,7 +8,8 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-func Run(db *sql.DB, queries []platform.Query) ([]string, error) {
+func Run(db *sql.DB, queries []platform.Query) ([]platform.Explain, error) {
+	res := make([]platform.Explain, 0)
 	for _, q := range queries {
 		rows, err := db.Query(q.AsExplain(), q.Bindings...)
 		if err != nil {
@@ -25,7 +26,8 @@ func Run(db *sql.DB, queries []platform.Query) ([]string, error) {
 		}
 
 		if rows.Next() {
-			var explain Explain
+			var explain platform.Explain
+			explain.Query = q
 
 			err = rows.Scan(
 				&explain.ID,
@@ -46,29 +48,14 @@ func Run(db *sql.DB, queries []platform.Query) ([]string, error) {
 				log.Println(qErr)
 				continue
 			}
-			fmt.Printf("ID: %d, select_type: %s, table: %s, key: %s, extra: %s\n", explain.ID, explain.SelectType.String, explain.Table.String, explain.Key.String, explain.Extra.String)
+			res = append(res, explain)
 		} else {
 			qErr := NewQueryError(q, fmt.Errorf("EXPLAIN returned an empty row"))
 			log.Println(qErr)
 			continue
 		}
 	}
-	return []string{}, nil
-}
-
-type Explain struct {
-	ID           int
-	SelectType   sql.NullString
-	Table        sql.NullString
-	Partitions   sql.NullString
-	QueryType    sql.NullString
-	PossibleKeys sql.NullString
-	Key          sql.NullString
-	KeyLen       sql.NullInt64
-	Ref          sql.NullString
-	NumberOfRows sql.NullInt64
-	Filtered     sql.NullFloat64
-	Extra        sql.NullString
+	return res, nil
 }
 
 type QueryError struct {
