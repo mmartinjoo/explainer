@@ -4,14 +4,18 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
 func Run(db *sql.DB, queries []platform.Query) ([]platform.Explain, error) {
 	res := make([]platform.Explain, 0)
-	for _, q := range queries {
+	for i, q := range queries {
 		rows, err := db.Query(q.AsExplain(), q.Bindings...)
+		if err != nil && strings.Contains(err.Error(), "Too many connections") {
+			return res, newTooManyConnectionsError(i, q.SQL)
+		}
 		if err != nil {
 			qErr := NewQueryError(q, err)
 			log.Println(qErr)
@@ -74,4 +78,20 @@ func NewQueryError(q platform.Query, err error) QueryError {
 		bindings: q.Bindings,
 		err:      err,
 	}
+}
+
+type TooManyConnectionsError struct {
+	sql string
+	idx int
+}
+
+func newTooManyConnectionsError(idx int, sql string) TooManyConnectionsError {
+	return TooManyConnectionsError{
+		idx: idx,
+		sql: sql,
+	}
+}
+
+func (e TooManyConnectionsError) Error() string {
+	return fmt.Sprintf("database returned a 'Too many connections' error after %d queries. Please try again with a smaller log file or set a limit with the '--limit' option. last query: %s", e.idx, e.sql)
 }
