@@ -24,6 +24,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("Analyzing %d unique queries...\n", len(queries))
+
 	var tooManyConnectionsErr error
 	explains, err := runner.Run(db, queries)
 	if err != nil && !errors.As(err, &runner.TooManyConnectionsError{}) {

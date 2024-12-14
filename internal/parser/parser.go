@@ -24,11 +24,15 @@ func Parse(filename string) ([]platform.Query, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
-	queriesSub, err := constructQueries(selectQueries)
+	uniqueQueries, err := getUniqueQueries(selectQueries)
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
-	return queriesSub, nil
+	res, err := constructQueries(uniqueQueries)
+	if err != nil {
+		return nil, fmt.Errorf("parser.Parse: %w", err)
+	}
+	return res, nil
 }
 
 func readQueries(filename string) ([]string, error) {
@@ -80,6 +84,30 @@ func sanitizeQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
+func getUniqueQueries(queries []string) ([]string, error) {
+	unique := make([]string, 0)
+
+	// keys are queries without bindings which represents a unique query
+	// values are queries with bindings
+	hmap := make(map[string]string)
+
+	for _, q := range queries {
+		if !hasBindings(q) {
+			hmap[q] = q
+			continue
+		}
+		idx := strings.LastIndex(q, "[")
+		sql := strings.Trim(q[:idx], " ")
+		hmap[sql] = q
+	}
+
+	for _, fullSQL := range hmap {
+		unique = append(unique, fullSQL)
+	}
+
+	return unique, nil
+}
+
 func constructQueries(selectQueries []string) ([]platform.Query, error) {
 	queries := make([]platform.Query, 0)
 	for _, q := range selectQueries {
@@ -89,11 +117,11 @@ func constructQueries(selectQueries []string) ([]platform.Query, error) {
 		}
 		bindings, err := getBindings(q)
 		if err != nil {
-			return nil, fmt.Errorf("substituteBindings: %w", err)
+			return nil, fmt.Errorf("constructQueries: %w", err)
 		}
 		c := strings.Count(q, "?")
 		if c != len(bindings) {
-			return nil, fmt.Errorf("argument number mismatch: %d \"?\" and the following bindings: %v", c, bindings)
+			return nil, fmt.Errorf("constructQueries: argument number mismatch: %d \"?\" and the following bindings: %v", c, bindings)
 		}
 		idx := strings.LastIndex(q, "[")
 		sql := strings.Trim(q[:idx], " ")
