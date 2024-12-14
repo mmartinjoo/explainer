@@ -98,7 +98,7 @@ func (r Result) analyzeAccessType() Result {
 func (r Result) analyzeFilteredRows() Result {
 	if r.Explain.Filtered.Float64 < 50.0 {
 		r.Grade = max(1, r.Grade-1)
-		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f% of it. It usually happens when you have a composite index and the column order is not optimal.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
+		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f percent of it. It usually happens when you have a composite index and the column order is not optimal.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
 	}
 	return r
 }
