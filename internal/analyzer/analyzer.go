@@ -16,6 +16,7 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeFilteredRows()
 		res = res.analyzeFilesort()
 		res = res.analyzeTempTable()
+		res = res.analyzeSelectStar()
 		results = append(results, res)
 	}
 
@@ -31,6 +32,7 @@ type Result struct {
 	FilterWarning     string
 	FilesortWarning   string
 	TempTableWarning  string
+	SelectStarWarning string
 	Grade             int
 }
 
@@ -57,6 +59,9 @@ func (r Result) String() string {
 	}
 	if len(r.TempTableWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Access type: %s\n", r.TempTableWarning))
+	}
+	if len(r.SelectStarWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Select: %s\n", r.SelectStarWarning))
 	}
 	return str.String()
 }
@@ -110,6 +115,13 @@ func (r Result) analyzeTempTable() Result {
 	if r.Explain.UsingTemporary() {
 		r.Grade = max(1, r.Grade-1)
 		r.TempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
+	}
+	return r
+}
+
+func (r Result) analyzeSelectStar() Result {
+	if r.Explain.Query.HasSelectStar() {
+		r.SelectStarWarning = "The query uses SELECT * which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
 	}
 	return r
 }

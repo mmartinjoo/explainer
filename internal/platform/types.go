@@ -31,6 +31,10 @@ func (q Query) AsExplain() string {
 	return "explain " + q.SQL
 }
 
+func (q Query) HasSelectStar() bool {
+	return strings.Contains(strings.ToLower(q.SQL), "select *")
+}
+
 type Explain struct {
 	Query        Query
 	ID           int

@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 
+	"github.com/fatih/color"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/mmartinjoo/explainer/internal/analyzer"
 	"github.com/mmartinjoo/explainer/internal/parser"
@@ -33,6 +33,15 @@ func main() {
 	}
 
 	for _, res := range results {
-		fmt.Printf("%s\n", res.String())
+		if res.Grade <= 2 {
+			color.Red(res.String()+"\n")
+		}
+		if res.Grade == 3 {
+			color.Yellow(res.String()+"\n")
+		}
+		if res.Grade > 3 {
+			color.Green(res.String()+"\n")
+		}
+		// fmt.Printf("%s\n", res.String())
 	}
 }
