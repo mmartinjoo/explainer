@@ -8,6 +8,11 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
+const (
+	minGrade = 1
+	maxGrade = 5
+)
+
 func Analyze(explains []platform.Explain) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
@@ -46,7 +51,7 @@ func newResult(expl platform.Explain) Result {
 func (r Result) String() string {
 	var str strings.Builder
 	str.WriteString(fmt.Sprintf("Query: %s\n", r.Explain.Query.SQL))
-	str.WriteString(fmt.Sprintf("Grade: %d/5\n", r.Grade))
+	str.WriteString(fmt.Sprintf("Grade: %d/%d\n", r.Grade, maxGrade))
 
 	if len(r.AccessTypeWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Access type: %s\n", r.AccessTypeWarning))
@@ -97,7 +102,7 @@ func (r Result) analyzeAccessType() Result {
 
 func (r Result) analyzeFilteredRows() Result {
 	if r.Explain.Filtered.Float64 < 50.0 {
-		r.Grade = max(1, r.Grade-1)
+		r.Grade = max(minGrade, r.Grade-1)
 		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f percent of it. It usually happens when you have a composite index and the column order is not optimal.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
 	}
 	return r
@@ -105,7 +110,7 @@ func (r Result) analyzeFilteredRows() Result {
 
 func (r Result) analyzeFilesort() Result {
 	if r.Explain.UsingFilesort() {
-		r.Grade = max(1, r.Grade-1)
+		r.Grade = max(minGrade, r.Grade-1)
 		r.FilesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
 	}
 	return r
@@ -113,7 +118,7 @@ func (r Result) analyzeFilesort() Result {
 
 func (r Result) analyzeTempTable() Result {
 	if r.Explain.UsingTemporary() {
-		r.Grade = max(1, r.Grade-1)
+		r.Grade = max(minGrade, r.Grade-1)
 		r.TempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
 	}
 	return r
