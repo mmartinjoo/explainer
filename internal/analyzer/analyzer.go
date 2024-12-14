@@ -21,7 +21,7 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 	}
 
 	slices.SortFunc(results, func(a, b Result) int {
-		return a.Grade - b.Grade
+		return b.Grade - a.Grade
 	})
 	return results, nil
 }

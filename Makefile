@@ -9,4 +9,4 @@ build-all: build
 	GOOS=linux GOARCH=amd64 go build -o bin/explainer-linux-x86-64 cmd/main.go
 
 run: build
-	bin/explainer_mac_arm
+	bin/explainer-macos-arm64

@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/mmartinjoo/explainer/internal/platform"
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
 func Parse(filename string) ([]platform.Query, error) {
@@ -15,15 +16,15 @@ func Parse(filename string) ([]platform.Query, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
-	queries, err := filterWriteQueries(logs)
+	queries, err := rejectWriteQueries(logs)
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
-	selectQueries, err := findSelectQueries(queries)
+	selectQueries, err := sanitizeQueries(queries)
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
-	queriesSub, err := substituteBindings(selectQueries)
+	queriesSub, err := constructQueries(selectQueries)
 	if err != nil {
 		return nil, fmt.Errorf("parser.Parse: %w", err)
 	}
@@ -43,7 +44,7 @@ func readQueries(filename string) ([]string, error) {
 	return queries, nil
 }
 
-func filterWriteQueries(logLines []string) ([]string, error) {
+func rejectWriteQueries(logLines []string) ([]string, error) {
 	writeCmds := []string{"insert", "update", "delete"}
 	queries := make([]string, 0)
 	for _, line := range logLines {
@@ -66,7 +67,7 @@ func filterWriteQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
-func findSelectQueries(logLines []string) ([]string, error) {
+func sanitizeQueries(logLines []string) ([]string, error) {
 	queries := make([]string, 0)
 	for _, line := range logLines {
 		idx := strings.Index(line, "select")
@@ -79,7 +80,7 @@ func findSelectQueries(logLines []string) ([]string, error) {
 	return queries, nil
 }
 
-func substituteBindings(selectQueries []string) ([]platform.Query, error) {
+func constructQueries(selectQueries []string) ([]platform.Query, error) {
 	queries := make([]platform.Query, 0)
 	for _, q := range selectQueries {
 		if !hasBindings(q) {
