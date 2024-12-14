@@ -2,7 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/mmartinjoo/explainer/internal/analyzer"
 	"github.com/mmartinjoo/explainer/internal/parser"
 	"github.com/mmartinjoo/explainer/internal/runner"
 )
@@ -19,8 +22,14 @@ func main() {
 		panic(err)
 	}
 
-	_, err = runner.Run(db, queries)
+	explains, err := runner.Run(db, queries)
 	if err != nil {
 		panic(err)
 	}
+
+	res, err := analyzer.Analyze(explains)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("res: %s\n", res)
 }
