@@ -22,6 +22,7 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeFilesort()
 		res = res.analyzeTempTable()
 		res = res.analyzeSelectStar()
+		res = res.analyzeLikePattern()
 		results = append(results, res)
 	}
 
@@ -32,13 +33,14 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 }
 
 type Result struct {
-	Explain           platform.Explain
-	AccessTypeWarning string
-	FilterWarning     string
-	FilesortWarning   string
-	TempTableWarning  string
-	SelectStarWarning string
-	Grade             int
+	Explain            platform.Explain
+	AccessTypeWarning  string
+	FilterWarning      string
+	FilesortWarning    string
+	TempTableWarning   string
+	SelectStarWarning  string
+	LikePatternWarning string
+	Grade              int
 }
 
 func newResult(expl platform.Explain) Result {
@@ -67,6 +69,9 @@ func (r Result) String() string {
 	}
 	if len(r.SelectStarWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Select: %s\n", r.SelectStarWarning))
+	}
+	if len(r.LikePatternWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Like pattern: %s\n", r.LikePatternWarning))
 	}
 	return str.String()
 }
@@ -103,7 +108,7 @@ func (r Result) analyzeAccessType() Result {
 func (r Result) analyzeFilteredRows() Result {
 	if r.Explain.Filtered.Float64 < 50.0 {
 		r.Grade = max(minGrade, r.Grade-1)
-		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f percent of it. It usually happens when you have a composite index and the column order is not optimal.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
+		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
 	}
 	return r
 }
@@ -126,7 +131,15 @@ func (r Result) analyzeTempTable() Result {
 
 func (r Result) analyzeSelectStar() Result {
 	if r.Explain.Query.HasSelectStar() {
-		r.SelectStarWarning = "The query uses SELECT * which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
+		r.SelectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
+	}
+	return r
+}
+
+func (r Result) analyzeLikePattern() Result {
+	if r.Explain.Query.HasLikePattern() {
+		r.LikePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
+		r.Grade = max(minGrade, r.Grade-1)
 	}
 	return r
 }

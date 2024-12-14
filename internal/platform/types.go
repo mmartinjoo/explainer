@@ -35,6 +35,24 @@ func (q Query) HasSelectStar() bool {
 	return strings.Contains(strings.ToLower(q.SQL), "select *")
 }
 
+func (q Query) HasLikePattern() bool {
+	hasLike := strings.Contains(strings.ToLower(q.SQL), "like")
+	if !hasLike {
+		return false
+	}
+
+	for _, b := range q.Bindings {
+		switch v := b.(type) {
+		case string:
+			if strings.Contains(v, "%") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 type Explain struct {
 	Query        Query
 	ID           int
