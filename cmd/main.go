@@ -27,9 +27,12 @@ func main() {
 		panic(err)
 	}
 
-	res, err := analyzer.Analyze(explains)
+	results, err := analyzer.Analyze(explains)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("res: %s\n", res)
+
+	for _, res := range results {
+		fmt.Printf("%s\n", res.String())
+	}
 }

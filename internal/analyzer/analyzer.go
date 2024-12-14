@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mmartinjoo/explainer/internal/platform"
@@ -17,6 +18,10 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeTempTable()
 		results = append(results, res)
 	}
+
+	slices.SortFunc(results, func(a, b Result) int {
+		return a.Grade - b.Grade
+	})
 	return results, nil
 }
 
@@ -37,7 +42,23 @@ func newResult(expl platform.Explain) Result {
 }
 
 func (r Result) String() string {
-	return fmt.Sprintf("sql: %s, access type warn: %s, grade: %d", r.Explain.Query.SQL, r.AccessTypeWarning, r.Grade)
+	var str strings.Builder
+	str.WriteString(fmt.Sprintf("Query: %s\n", r.Explain.Query.SQL))
+	str.WriteString(fmt.Sprintf("Grade: %d/5\n", r.Grade))
+
+	if len(r.AccessTypeWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Access type: %s\n", r.AccessTypeWarning))
+	}
+	if len(r.FilterWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Access type: %s\n", r.FilterWarning))
+	}
+	if len(r.FilesortWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Access type: %s\n", r.FilesortWarning))
+	}
+	if len(r.TempTableWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Access type: %s\n", r.TempTableWarning))
+	}
+	return str.String()
 }
 
 func (r Result) analyzeAccessType() Result {
@@ -47,7 +68,7 @@ func (r Result) analyzeAccessType() Result {
 		r.Grade = 1
 	case "index":
 		if !r.Explain.UsingIndex() {
-			r.AccessTypeWarning = `Altough your query uses the "index" access type, the "Extra" column does not contain "Using index". It means you effectively do a FULL TABLE SCAN. First, the DB scans the whole BTREE index and then runs I/O operations for each node. It will cause you trouble if you have a large number of records.`
+			r.AccessTypeWarning = `Altough your query uses the "index" access type, the "Extra" column does not contain "Using index". It means you effectively do a FULL TABLE SCAN. First, the DB scans the whole BTREE index and then runs I/O operations for each node to satisfy the SELECT statement. It often happens when "SELECT *" is used. It will cause you trouble if you have a large number of records.`
 			r.Grade = 1
 		} else {
 			r.AccessTypeWarning = `The query uses the "index" access type. It scans every node in the index BTREE which is pretty inefficient. It will cause you trouble if you have a large number of records. Fortunately, the "Extra" column contains "Using index" which means the query does not run a large number of extra I/O operations.`
