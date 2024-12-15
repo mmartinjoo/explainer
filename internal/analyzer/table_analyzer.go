@@ -162,12 +162,20 @@ func newTableAnalysisResult() TableAnalysisResult {
 
 func (r TableAnalysisResult) String() string {
 	var str strings.Builder
+	hasProblems := false
 	str.WriteString(fmt.Sprintf("Grade: %d/%d\n", r.Grade, maxGrade))
+
 	if len(r.CompositeIndexWarnings) != 0 {
+		hasProblems = true
 		str.WriteString("Composite index problems:\n")
 		for _, v := range r.CompositeIndexWarnings {
 			str.WriteString(fmt.Sprintf("- %s", v))
 		}
 	}
+
+	if !hasProblems {
+		str.WriteString("No problems found")
+	}
+
 	return str.String()
 }
