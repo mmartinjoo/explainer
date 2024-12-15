@@ -111,7 +111,7 @@ func newResult(expl ExplainResult) Result {
 func (r Result) String() string {
 	var str strings.Builder
 	str.WriteString(fmt.Sprintf("Query: %s\n", r.Explain.Query.SQL))
-	str.WriteString(fmt.Sprintf("Grade: %0.2f/%d\n", r.Grade, maxGrade))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.Grade, maxGrade))
 
 	if len(r.AccessTypeWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Access type: %s\n", r.AccessTypeWarning))

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
 	"log"
 	"slices"
 	"strings"
@@ -12,11 +11,12 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-var (
-	minGrade        = 1
-	maxGrade        = 5
-	errEmptyResults = errors.New("empty results")
+const (
+	minGrade = 1
+	maxGrade = 5
 )
+
+var errEmptyResults = errors.New("empty results")
 
 func Analyze(db *sql.DB, table string) error {
 	log.Printf("Analyzing %s...\n", table)
@@ -26,15 +26,7 @@ func Analyze(db *sql.DB, table string) error {
 		return fmt.Errorf("tableanalyzer.Analyze: %w", err)
 	}
 
-	if res.Grade < 3 {
-		color.Red(res.String() + "\n")
-	}
-	if res.Grade >= 3 && res.Grade < 4 {
-		color.Yellow(res.String() + "\n")
-	}
-	if res.Grade >= 4 {
-		color.Green(res.String() + "\n")
-	}
+	platform.PrintResults(res)
 	return nil
 }
 
@@ -244,7 +236,7 @@ func (r Result) analyzeTooLongTextColumns(db *sql.DB, table string) (Result, err
 		for _, c := range cols {
 			msg.WriteString(fmt.Sprintf("- Column: %s, max length in table: %d", c.col.name, c.maxLen))
 		}
-		r.TooLongTextColumnsWarning = msg.String()
+		r.tooLongTextColumnsWarning = msg.String()
 	}
 	return r, nil
 }
@@ -302,7 +294,7 @@ func (r Result) analyzeStringIndexes(db *sql.DB, table string) (Result, error) {
 			}
 			msg.WriteString(fmt.Sprintf("- %s\n", v))
 		}
-		r.StringBasedIndexWarning = msg.String()
+		r.stringBasedIndexWarning = msg.String()
 	}
 	return r, nil
 }
@@ -334,8 +326,8 @@ func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error
 			msg.WriteString(fmt.Sprintf("'%s' is suboptimal. Columns are not ordered based on their cardinality which can result in expensive queries\n", name))
 			msg.WriteString(fmt.Sprintf("The optimal column order should be: %v\n", optimalColOrder))
 			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n", actualColOrder))
-			r.CompositeIndexWarnings = append(r.CompositeIndexWarnings, msg.String())
-			r.Grade = max(minGrade, r.Grade-1)
+			r.compositeIndexWarnings = append(r.compositeIndexWarnings, msg.String())
+			r.grade = max(minGrade, r.grade-1)
 		}
 	}
 	return r, nil
@@ -368,39 +360,43 @@ type Index struct {
 }
 
 type Result struct {
-	CompositeIndexWarnings    []string
-	StringBasedIndexWarning   string
-	TooLongTextColumnsWarning string
-	Grade                     int
+	compositeIndexWarnings    []string
+	stringBasedIndexWarning   string
+	tooLongTextColumnsWarning string
+	grade                     float32
 }
 
 func newTableAnalysisResult() Result {
 	return Result{
-		Grade: 5,
+		grade: 5,
 	}
+}
+
+func (r Result) Grade() float32 {
+	return r.grade
 }
 
 func (r Result) String() string {
 	var str strings.Builder
 	hasProblems := false
-	str.WriteString(fmt.Sprintf("Grade: %d/%d\n", r.Grade, maxGrade))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, maxGrade))
 
-	if len(r.CompositeIndexWarnings) != 0 {
+	if len(r.compositeIndexWarnings) != 0 {
 		hasProblems = true
 		str.WriteString("Composite index problems:\n")
-		for _, v := range r.CompositeIndexWarnings {
+		for _, v := range r.compositeIndexWarnings {
 			str.WriteString(fmt.Sprintf("- %s", v))
 		}
 	}
-	if len(r.StringBasedIndexWarning) != 0 {
+	if len(r.stringBasedIndexWarning) != 0 {
 		hasProblems = true
 		str.WriteString("String-based index problems:\n")
-		str.WriteString(r.StringBasedIndexWarning)
+		str.WriteString(r.stringBasedIndexWarning)
 	}
-	if len(r.TooLongTextColumnsWarning) != 0 {
+	if len(r.tooLongTextColumnsWarning) != 0 {
 		hasProblems = true
 		str.WriteString("\nToo long text columns:\n")
-		str.WriteString(r.TooLongTextColumnsWarning)
+		str.WriteString(r.tooLongTextColumnsWarning)
 	}
 
 	if !hasProblems {
