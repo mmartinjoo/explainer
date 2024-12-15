@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
+	"github.com/mmartinjoo/explainer/internal/platform"
 	"log"
 	"slices"
 	"strings"
@@ -38,15 +38,7 @@ func Explain(db *sql.DB, logFilePath string) error {
 	}
 
 	for _, res := range results {
-		if res.Grade < 3 {
-			color.Red(res.String() + "\n")
-		}
-		if res.Grade >= 3 && res.Grade < 4 {
-			color.Yellow(res.String() + "\n")
-		}
-		if res.Grade >= 4 {
-			color.Green(res.String() + "\n")
-		}
+		platform.PrintResults(res)
 	}
 
 	log.Printf("%d unique queries were analyzed", len(explains))
@@ -77,10 +69,10 @@ func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	}
 
 	slices.SortFunc(results, func(a, b Result) int {
-		if a.Grade < b.Grade {
+		if a.grade < b.grade {
 			return 1
 		}
-		if a.Grade > b.Grade {
+		if a.grade > b.grade {
 			return -1
 		}
 		return 0
@@ -89,128 +81,132 @@ func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 }
 
 type Result struct {
-	Explain                 ExplainResult
-	AccessTypeWarning       string
-	FilterWarning           string
-	FilesortWarning         string
-	TempTableWarning        string
-	SelectStarWarning       string
-	LikePatternWarning      string
-	JoinOrderWarning        string
-	SubqueryInSelectWarning string
-	Grade                   float32
+	explain                 ExplainResult
+	accessTypeWarning       string
+	filterWarning           string
+	filesortWarning         string
+	tempTableWarning        string
+	selectStarWarning       string
+	likePatternWarning      string
+	joinOrderWarning        string
+	subqueryInSelectWarning string
+	grade                   float32
 }
 
 func newResult(expl ExplainResult) Result {
 	return Result{
-		Explain: expl,
-		Grade:   5,
+		explain: expl,
+		grade:   5,
 	}
+}
+
+func (r Result) Grade() float32 {
+	return r.grade
 }
 
 func (r Result) String() string {
 	var str strings.Builder
-	str.WriteString(fmt.Sprintf("Query: %s\n", r.Explain.Query.SQL))
-	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.Grade, maxGrade))
+	str.WriteString(fmt.Sprintf("Query: %s\n", r.explain.Query.SQL))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, maxGrade))
 
-	if len(r.AccessTypeWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Access type: %s\n", r.AccessTypeWarning))
+	if len(r.accessTypeWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Access type: %s\n", r.accessTypeWarning))
 	}
-	if len(r.FilterWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Filtered rows: %s\n", r.FilterWarning))
+	if len(r.filterWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Filtered rows: %s\n", r.filterWarning))
 	}
-	if len(r.FilesortWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Filesort: %s\n", r.FilesortWarning))
+	if len(r.filesortWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Filesort: %s\n", r.filesortWarning))
 	}
-	if len(r.TempTableWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Temp table: %s\n", r.TempTableWarning))
+	if len(r.tempTableWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Temp table: %s\n", r.tempTableWarning))
 	}
-	if len(r.LikePatternWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Like pattern: %s\n", r.LikePatternWarning))
+	if len(r.likePatternWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Like pattern: %s\n", r.likePatternWarning))
 	}
-	if len(r.JoinOrderWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Suboptimal join order: %s\n", r.JoinOrderWarning))
+	if len(r.joinOrderWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Suboptimal join order: %s\n", r.joinOrderWarning))
 	}
-	if len(r.SubqueryInSelectWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Subquery in SELECT: %s\n", r.SubqueryInSelectWarning))
+	if len(r.subqueryInSelectWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Subquery in SELECT: %s\n", r.subqueryInSelectWarning))
 	}
-	if len(r.SelectStarWarning) != 0 {
-		str.WriteString(fmt.Sprintf("Select: %s\n", r.SelectStarWarning))
+	if len(r.selectStarWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Select: %s\n", r.selectStarWarning))
 	}
 	return str.String()
 }
 
 func (r Result) analyzeAccessType() Result {
-	switch strings.ToLower(r.Explain.QueryType.String) {
+	switch strings.ToLower(r.explain.QueryType.String) {
 	case "all":
-		r.AccessTypeWarning = `The query uses the "ALL" access type. It scans ALL rows from the disk without using an index. It will cause you trouble if you have a large number of records.`
-		r.Grade = 1
+		r.accessTypeWarning = `The query uses the "ALL" access type. It scans ALL rows from the disk without using an index. It will cause you trouble if you have a large number of records.`
+		r.grade = 1
 	case "index":
-		if !r.Explain.UsingIndex() {
-			r.AccessTypeWarning = `Altough your query uses the "index" access type, the "Extra" column does not contain "Using index". It means you effectively do a FULL TABLE SCAN. First, the DB scans the whole BTREE index and then runs I/O operations for each node to satisfy the SELECT statement. It often happens when "SELECT *" is used. It will cause you trouble if you have a large number of records.`
-			r.Grade = 1
+		if !r.explain.UsingIndex() {
+			r.accessTypeWarning = `Altough your query uses the "index" access type, the "Extra" column does not contain "Using index". It means you effectively do a FULL TABLE SCAN. First, the DB scans the whole BTREE index and then runs I/O operations for each node to satisfy the SELECT statement. It often happens when "SELECT *" is used. It will cause you trouble if you have a large number of records.`
+			r.grade = 1
 		} else {
-			r.AccessTypeWarning = `The query uses the "index" access type. It scans every node in the index BTREE which is pretty inefficient. It will cause you trouble if you have a large number of records. Fortunately, the "Extra" column contains "Using index" which means the query does not run a large number of extra I/O operations.`
-			r.Grade = 2
+			r.accessTypeWarning = `The query uses the "index" access type. It scans every node in the index BTREE which is pretty inefficient. It will cause you trouble if you have a large number of records. Fortunately, the "Extra" column contains "Using index" which means the query does not run a large number of extra I/O operations.`
+			r.grade = 2
 		}
 	case "range":
-		if !r.Explain.UsingIndex() {
-			r.AccessTypeWarning = `Altough your query uses the "range" access type, the "Extra" column does not contain "Using index". It means you run unnecessary I/O operations. First, the DB scans the BTREE index for matching rows and then it runs I/O operations for each node. It can be slower if you have a large number of records.`
-			r.Grade = 3
+		if !r.explain.UsingIndex() {
+			r.accessTypeWarning = `Altough your query uses the "range" access type, the "Extra" column does not contain "Using index". It means you run unnecessary I/O operations. First, the DB scans the BTREE index for matching rows and then it runs I/O operations for each node. It can be slower if you have a large number of records.`
+			r.grade = 3
 		} else {
-			r.AccessTypeWarning = ""
-			r.Grade = 4
+			r.accessTypeWarning = ""
+			r.grade = 4
 		}
 	case "const":
 	case "ref":
-		r.AccessTypeWarning = ""
-		r.Grade = 5
+		r.accessTypeWarning = ""
+		r.grade = 5
 	}
 	return r
 }
 
 func (r Result) analyzeFilteredRows() Result {
-	if r.Explain.Filtered.Float64 < 50.0 {
-		r.Grade = max(minGrade, r.Grade-1)
-		r.FilterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.Explain.NumberOfRows.Int64, r.Explain.Filtered.Float64)
+	if r.explain.Filtered.Float64 < 50.0 {
+		r.grade = max(minGrade, r.grade-1)
+		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
 	}
 	return r
 }
 
 func (r Result) analyzeFilesort() Result {
-	if r.Explain.UsingFilesort() {
-		r.Grade = max(minGrade, r.Grade-0.5)
-		r.FilesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
+	if r.explain.UsingFilesort() {
+		r.grade = max(minGrade, r.grade-0.5)
+		r.filesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
 	}
 	return r
 }
 
 func (r Result) analyzeTempTable() Result {
-	if r.Explain.UsingTemporary() {
-		r.Grade = max(minGrade, r.Grade-0.5)
-		r.TempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
+	if r.explain.UsingTemporary() {
+		r.grade = max(minGrade, r.grade-0.5)
+		r.tempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
 	}
 	return r
 }
 
 func (r Result) analyzeSelectStar() Result {
-	if r.Explain.Query.HasSelectStar() {
-		r.Grade = max(minGrade, r.Grade-0.25)
-		r.SelectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
+	if r.explain.Query.HasSelectStar() {
+		r.grade = max(minGrade, r.grade-0.25)
+		r.selectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
 	}
 	return r
 }
 
 func (r Result) analyzeLikePattern() Result {
-	if r.Explain.Query.HasLikePattern() {
-		r.LikePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
-		r.Grade = max(minGrade, r.Grade-0.5)
+	if r.explain.Query.HasLikePattern() {
+		r.likePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
+		r.grade = max(minGrade, r.grade-0.5)
 	}
 	return r
 }
 
 func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
-	tables := getJoinedTables(r.Explain.Query.SQL)
+	tables := getJoinedTables(r.explain.Query.SQL)
 	counts := make([]int, len(tables))
 
 	for i, t := range tables {
@@ -227,17 +223,17 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 	})
 
 	if slices.Compare(counts, countsDesc) != 0 {
-		r.JoinOrderWarning = "Tables in the query might be joined in a suboptimal way. MySQL can perform better if you join smaller tables earlier and larger ones later. If it's possible, of course."
-		r.Grade = max(minGrade, r.Grade-0.25)
+		r.joinOrderWarning = "Tables in the query might be joined in a suboptimal way. MySQL can perform better if you join smaller tables earlier and larger ones later. If it's possible, of course."
+		r.grade = max(minGrade, r.grade-0.25)
 	}
 
 	return r, nil
 }
 
 func (r Result) analyzeSubqueryInSelect() Result {
-	if r.Explain.Query.HasSubqueryInSelect() {
-		r.Grade = max(minGrade, r.Grade-2)
-		r.SubqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
+	if r.explain.Query.HasSubqueryInSelect() {
+		r.grade = max(minGrade, r.grade-2)
+		r.subqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
 	}
 	return r
 }
