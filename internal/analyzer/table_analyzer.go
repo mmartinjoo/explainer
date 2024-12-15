@@ -15,6 +15,10 @@ func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	if err != nil {
 		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
+	res, err = res.analyzeStringIndexes(db, table)
+	if err != nil {
+		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
+	}
 	return res, nil
 }
 
@@ -112,6 +116,12 @@ func queryIndexes(db *sql.DB, table string) ([]Index, error) {
 		}
 		idx.column = col
 
+		idxType, err := platform.ConvertString(values[10])
+		if err != nil {
+			return nil, fmt.Errorf("analyzer.queryIndexes: parsing idxType: %w", err)
+		}
+		idx.indexType = idxType
+
 		seq, ok := values[3].(int64)
 		if !ok {
 			return nil, fmt.Errorf("analyzer.queryIndexes: parsing sequence: %w", err)
@@ -150,14 +160,43 @@ func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
 	return hmap, nil
 }
 
+func (r TableAnalysisResult) analyzeStringIndexes(db *sql.DB, table string) (TableAnalysisResult, error) {
+	stringCols, err := queryStringColumns(db, table)
+	if err != nil {
+		return r, fmt.Errorf("abalyzer.analyzeStringIndexes: querying columns: %w", err)
+	}
+
+	indexes, err := queryIndexes(db, table)
+	if err != nil {
+		return r, fmt.Errorf("abalyzer.analyzeStringIndexes: querying indexes: %w", err)
+	}
+
+	colsInIndex := make([]string, 0)
+	for _, col := range stringCols {
+		for _, idx := range indexes {
+			if idx.column == col.name && idx.indexType != "FULLTEXT" {
+				colsInIndex = append(colsInIndex, col.name)
+			}
+		}
+	}
+
+	if len(colsInIndex) > 0 {
+		var msg strings.Builder
+		msg.WriteString("The following string-based columns (varchar, text, mediumtext, etc) are being part of non-FULLTEXT indexes:\n")
+		msg.WriteString(fmt.Sprintf("%v\n", colsInIndex))
+		r.StringBasedIndexWarning = msg.String()
+	}
+	return r, nil
+}
+
 func (r TableAnalysisResult) analyzeCompositeIndexes(db *sql.DB, table string) (TableAnalysisResult, error) {
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+		return r, fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
 	}
 	compIndexes, err := findCompositeIndexes(indexes)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+		return r, fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
 	}
 
 	for name, compIdx := range compIndexes {
@@ -204,14 +243,16 @@ func checkCardinality(compIdx CompositeIndex) (optimalIndex CompositeIndex, ok b
 
 type Index struct {
 	keyName     string
+	indexType   string
 	seq         int64
 	column      string
 	cardinality int64
 }
 
 type TableAnalysisResult struct {
-	CompositeIndexWarnings []string
-	Grade                  int
+	CompositeIndexWarnings  []string
+	StringBasedIndexWarning string
+	Grade                   int
 }
 
 func newTableAnalysisResult() TableAnalysisResult {
@@ -231,6 +272,12 @@ func (r TableAnalysisResult) String() string {
 		for _, v := range r.CompositeIndexWarnings {
 			str.WriteString(fmt.Sprintf("- %s", v))
 		}
+	}
+	if len(r.StringBasedIndexWarning) != 0 {
+		hasProblems = true
+		str.WriteString("String-based index problems:\n")
+		str.WriteString(r.StringBasedIndexWarning)
+		str.WriteString("It is usually a better idea to use a FULLTEXT index for columns like these because they are optimized for string data. On top of that, MySQL can only index the first 4KB of a text column so in case of a longer column it is only a partial index.")
 	}
 
 	if !hasProblems {
