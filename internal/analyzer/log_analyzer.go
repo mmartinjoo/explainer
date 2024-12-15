@@ -3,11 +3,11 @@ package analyzer
 import (
 	"database/sql"
 	"fmt"
+	"github.com/mmartinjoo/explainer/internal/explainer"
 	"log"
 	"slices"
 	"strings"
 
-	"github.com/mmartinjoo/explainer/internal/platform"
 	"github.com/mmartinjoo/explainer/internal/platform/query"
 )
 
@@ -16,7 +16,7 @@ const (
 	maxGrade = 5
 )
 
-func Analyze(db *sql.DB, explains []platform.Explain) ([]Result, error) {
+func Analyze(db *sql.DB, explains []explainer.Explain) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)
@@ -48,7 +48,7 @@ func Analyze(db *sql.DB, explains []platform.Explain) ([]Result, error) {
 }
 
 type Result struct {
-	Explain                 platform.Explain
+	Explain                 explainer.Explain
 	AccessTypeWarning       string
 	FilterWarning           string
 	FilesortWarning         string
@@ -60,7 +60,7 @@ type Result struct {
 	Grade                   float32
 }
 
-func newResult(expl platform.Explain) Result {
+func newResult(expl explainer.Explain) Result {
 	return Result{
 		Explain: expl,
 		Grade:   5,

@@ -1,36 +1,34 @@
-package runner
+package explainer
 
 import (
 	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-
-	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-func Run(db *sql.DB, queries []platform.Query) ([]platform.Explain, error) {
-	res := make([]platform.Explain, 0)
+func ExplainMany(db *sql.DB, queries []Query) ([]Explain, error) {
+	res := make([]Explain, 0)
 	for i, q := range queries {
 		rows, err := db.Query(q.AsExplain(), q.Bindings...)
 		if err != nil && strings.Contains(err.Error(), "Too many connections") {
 			return res, newTooManyConnectionsError(i, q.SQL)
 		}
 		if err != nil {
-			qErr := NewQueryError(q, err)
+			qErr := newQueryError(q, err)
 			log.Println(qErr)
 			continue
 		}
 		defer rows.Close()
 
 		if err = rows.Err(); err != nil {
-			qErr := NewQueryError(q, err)
+			qErr := newQueryError(q, err)
 			log.Println(qErr)
 			continue
 		}
 
 		if rows.Next() {
-			var explain platform.Explain
+			var explain Explain
 			explain.Query = q
 
 			err = rows.Scan(
@@ -48,13 +46,13 @@ func Run(db *sql.DB, queries []platform.Query) ([]platform.Explain, error) {
 				&explain.Extra,
 			)
 			if err != nil {
-				qErr := NewQueryError(q, err)
+				qErr := newQueryError(q, err)
 				log.Println(qErr)
 				continue
 			}
 			res = append(res, explain)
 		} else {
-			qErr := NewQueryError(q, fmt.Errorf("EXPLAIN returned an empty row"))
+			qErr := newQueryError(q, fmt.Errorf("EXPLAIN returned an empty row"))
 			log.Println(qErr)
 			continue
 		}
@@ -72,7 +70,7 @@ func (q QueryError) Error() string {
 	return fmt.Sprintf("query %s with bindings %v failed: %v", q.sql, q.bindings, q.err)
 }
 
-func NewQueryError(q platform.Query, err error) QueryError {
+func newQueryError(q Query, err error) QueryError {
 	return QueryError{
 		sql:      q.SQL,
 		bindings: q.Bindings,

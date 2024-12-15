@@ -1,4 +1,4 @@
-package parser
+package explainer
 
 import (
 	"bufio"
@@ -7,30 +7,28 @@ import (
 	"os"
 	"slices"
 	"strings"
-
-	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-func Parse(filename string) ([]platform.Query, error) {
+func ParseLog(filename string) ([]Query, error) {
 	logs, err := readQueries(filename)
 	if err != nil {
-		return nil, fmt.Errorf("parser.Parse: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
 	}
 	queries, err := rejectWriteQueries(logs)
 	if err != nil {
-		return nil, fmt.Errorf("parser.Parse: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
 	}
 	selectQueries, err := sanitizeQueries(queries)
 	if err != nil {
-		return nil, fmt.Errorf("parser.Parse: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
 	}
 	uniqueQueries, err := getUniqueQueries(selectQueries)
 	if err != nil {
-		return nil, fmt.Errorf("parser.Parse: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
 	}
 	res, err := constructQueries(uniqueQueries)
 	if err != nil {
-		return nil, fmt.Errorf("parser.Parse: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
 	}
 	return res, nil
 }
@@ -108,11 +106,11 @@ func getUniqueQueries(queries []string) ([]string, error) {
 	return unique, nil
 }
 
-func constructQueries(selectQueries []string) ([]platform.Query, error) {
-	queries := make([]platform.Query, 0)
+func constructQueries(selectQueries []string) ([]Query, error) {
+	queries := make([]Query, 0)
 	for _, q := range selectQueries {
 		if !hasBindings(q) {
-			queries = append(queries, platform.NewQuery(q))
+			queries = append(queries, NewQuery(q))
 			continue
 		}
 		bindings, err := getBindings(q)
@@ -125,7 +123,7 @@ func constructQueries(selectQueries []string) ([]platform.Query, error) {
 		}
 		idx := strings.LastIndex(q, "[")
 		sql := strings.Trim(q[:idx], " ")
-		queries = append(queries, platform.NewQueryWithBindings(sql, bindings))
+		queries = append(queries, NewQueryWithBindings(sql, bindings))
 	}
 	return queries, nil
 }

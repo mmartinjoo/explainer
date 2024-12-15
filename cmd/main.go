@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/mmartinjoo/explainer/internal/explainer"
 	"log"
 	"os"
 
 	"github.com/fatih/color"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/mmartinjoo/explainer/internal/analyzer"
-	"github.com/mmartinjoo/explainer/internal/parser"
-	"github.com/mmartinjoo/explainer/internal/runner"
 )
 
 func main() {
@@ -65,7 +64,7 @@ func analyzeTable(db *sql.DB, table string) {
 }
 
 func analyzeLogs(db *sql.DB, path string) {
-	queries, err := parser.Parse(path)
+	queries, err := explainer.ParseLog(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,11 +72,11 @@ func analyzeLogs(db *sql.DB, path string) {
 	log.Printf("Analyzing %d unique queries...\n", len(queries))
 
 	var tooManyConnectionsErr error
-	explains, err := runner.Run(db, queries)
-	if err != nil && !errors.As(err, &runner.TooManyConnectionsError{}) {
+	explains, err := explainer.ExplainMany(db, queries)
+	if err != nil && !errors.As(err, &explainer.TooManyConnectionsError{}) {
 		log.Fatal(err)
 	}
-	if errors.As(err, &runner.TooManyConnectionsError{}) {
+	if errors.As(err, &explainer.TooManyConnectionsError{}) {
 		tooManyConnectionsErr = err
 	}
 
