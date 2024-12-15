@@ -12,7 +12,7 @@ import (
 func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	res := newTableAnalysisResult()
 
-	indexes, err := findIndexes(db, table)
+	indexes, err := queryIndexes(db, table)
 	if err != nil {
 		return res, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
 	}
@@ -24,7 +24,7 @@ func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	return res, nil
 }
 
-func findIndexes(db *sql.DB, table string) ([]Index, error) {
+func queryIndexes(db *sql.DB, table string) ([]Index, error) {
 	rows, err := db.Query(fmt.Sprintf("show index from %s", table))
 	if err != nil {
 		return nil, fmt.Errorf("analyzer.findIndexes: exeuting query: %w", err)
