@@ -87,10 +87,11 @@ func analyzeLogs(db *sql.DB, path string) {
 	}
 
 	for _, res := range results {
-		if res.Grade <= 2 {
+		fmt.Printf("grade: %0.2f\n", res.Grade)
+		if res.Grade < 3 {
 			color.Red(res.String() + "\n")
 		}
-		if res.Grade == 3 {
+		if res.Grade >= 3 && res.Grade < 4 {
 			color.Yellow(res.String() + "\n")
 		}
 		if res.Grade >= 4 {
