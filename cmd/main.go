@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/paddle")
+	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/analytics")
 	if err != nil {
 		log.Fatal(err)
 	}

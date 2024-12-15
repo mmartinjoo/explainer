@@ -53,6 +53,10 @@ func (q Query) HasLikePattern() bool {
 	return false
 }
 
+func (q Query) HasJoins() bool {
+	return strings.Contains(strings.ToLower(q.SQL), "join ") && strings.Contains(strings.ToLower(q.SQL), "on ")
+}
+
 type Explain struct {
 	Query        Query
 	ID           int

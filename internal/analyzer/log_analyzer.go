@@ -23,6 +23,7 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeTempTable()
 		res = res.analyzeSelectStar()
 		res = res.analyzeLikePattern()
+		res = res.AnalyzeJoinOrder()
 		results = append(results, res)
 	}
 
@@ -142,4 +143,35 @@ func (r Result) analyzeLikePattern() Result {
 		r.Grade = max(minGrade, r.Grade-1)
 	}
 	return r
+}
+
+func (r Result) AnalyzeJoinOrder() Result {
+	tables := getJoinedTables(r.Explain.Query.SQL)
+	platform.VarDump(tables)
+	return r
+}
+
+func getJoinedTables(sql string) []string {
+	tables := make([]string, 0)
+	sqlLower := strings.ToLower(sql)
+
+	for {
+		startIdx := strings.Index(sqlLower, "join ")
+		if startIdx == -1 || startIdx+len("join ") >= len(sqlLower) {
+			break
+		}
+
+		startIdx += len("join ")
+		lenTableName := strings.Index(sqlLower[startIdx:], " ")
+		if lenTableName == -1 {
+			break
+		}
+		sqlLower = sqlLower[startIdx:]
+
+		r := strings.NewReader(sqlLower)
+		buf := make([]byte, lenTableName)
+		r.Read(buf)
+		tables = append(tables, string(buf))
+	}
+	return tables
 }
