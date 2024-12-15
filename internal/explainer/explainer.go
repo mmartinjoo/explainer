@@ -8,8 +8,6 @@ import (
 	"log"
 	"slices"
 	"strings"
-
-	"github.com/mmartinjoo/explainer/internal/platform/query"
 )
 
 const (
@@ -217,9 +215,9 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 	counts := make([]int, len(tables))
 
 	for i, t := range tables {
-		count, err := query.CountRows(db, t)
+		count, err := countRows(db, t)
 		if err != nil {
-			return r, fmt.Errorf("analyzer.analyeJoinOrder: %w", err)
+			return r, fmt.Errorf("explainer.analyeJoinOrder: %w", err)
 		}
 		counts[i] = count
 	}
@@ -268,4 +266,20 @@ func getJoinedTables(sql string) []string {
 		tables = append(tables, string(buf))
 	}
 	return tables
+}
+
+func countRows(db *sql.DB, table string) (int, error) {
+	rows, err := db.Query(fmt.Sprintf("select count(*) from %s", table))
+	if err != nil {
+		return -1, fmt.Errorf("explainer.CountRows: exeuting query: %w", err)
+	}
+	defer rows.Close()
+
+	var count int
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return -1, fmt.Errorf("explainer.CountRows: scanning count: %w", err)
+		}
+	}
+	return count, nil
 }
