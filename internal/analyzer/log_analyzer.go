@@ -1,11 +1,13 @@
 package analyzer
 
 import (
+	"database/sql"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/mmartinjoo/explainer/internal/platform"
+	"github.com/mmartinjoo/explainer/internal/platform/query"
 )
 
 const (
@@ -13,7 +15,7 @@ const (
 	maxGrade = 5
 )
 
-func Analyze(explains []platform.Explain) ([]Result, error) {
+func Analyze(db *sql.DB, explains []platform.Explain) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)
@@ -23,7 +25,8 @@ func Analyze(explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeTempTable()
 		res = res.analyzeSelectStar()
 		res = res.analyzeLikePattern()
-		res = res.AnalyzeJoinOrder()
+		res, _ = res.analyzeJoinOrder(db)
+
 		results = append(results, res)
 	}
 
@@ -41,6 +44,7 @@ type Result struct {
 	TempTableWarning   string
 	SelectStarWarning  string
 	LikePatternWarning string
+	JoinOrderWarning   string
 	Grade              int
 }
 
@@ -73,6 +77,9 @@ func (r Result) String() string {
 	}
 	if len(r.LikePatternWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Like pattern: %s\n", r.LikePatternWarning))
+	}
+	if len(r.JoinOrderWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Suboptimal join order: %s\n", r.JoinOrderWarning))
 	}
 	return str.String()
 }
@@ -145,10 +152,28 @@ func (r Result) analyzeLikePattern() Result {
 	return r
 }
 
-func (r Result) AnalyzeJoinOrder() Result {
+func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 	tables := getJoinedTables(r.Explain.Query.SQL)
-	platform.VarDump(tables)
-	return r
+	counts := make([]int, len(tables))
+
+	for i, t := range tables {
+		count, err := query.CountRows(db, t)
+		if err != nil {
+			return Result{}, fmt.Errorf("analyzer.analyeJoinOrder: %w", err)
+		}
+		counts[i] = count
+	}
+
+	countsDesc := make([]int, len(counts))
+	slices.SortFunc(countsDesc, func(a, b int) int {
+		return b - a
+	})
+
+	if slices.Compare(counts, countsDesc) != 0 {
+		r.JoinOrderWarning = "Tables in the query might be joined in a suboptimal way. MySQL can perform better if you join smaller tables earlier and larger ones later. If it's possible, of course."
+	}
+
+	return r, nil
 }
 
 func getJoinedTables(sql string) []string {

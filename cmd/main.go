@@ -81,7 +81,7 @@ func analyzeLogs(db *sql.DB, path string) {
 		tooManyConnectionsErr = err
 	}
 
-	results, err := analyzer.Analyze(explains)
+	results, err := analyzer.Analyze(db, explains)
 	if err != nil {
 		log.Fatal(err)
 	}
