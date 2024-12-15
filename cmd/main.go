@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/fatih/color"
 	_ "github.com/go-sql-driver/mysql"
@@ -19,6 +21,34 @@ func main() {
 	}
 	defer db.Close()
 
+	if len(os.Args) == 1 {
+		fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
+		os.Exit(1)
+	}
+
+	switch os.Args[1] {
+	case "logs":
+		analyzeLogs(db)
+	case "table":
+		if len(os.Args) != 3 {
+			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
+			os.Exit(1)
+		}
+		analyzeTable(db, os.Args[2])
+	default:
+		fmt.Printf("Invalid argument: %s\n", os.Args[1])
+		os.Exit(1)
+	}
+}
+
+func analyzeTable(db *sql.DB, table string) {
+	err := analyzer.AnalyzeTable(db, table)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func analyzeLogs(db *sql.DB) {
 	queries, err := parser.Parse("/Users/joomartin/code/explainer/queries.log")
 	if err != nil {
 		log.Fatal(err)
@@ -51,6 +81,8 @@ func main() {
 			color.Green(res.String() + "\n")
 		}
 	}
+
+	log.Printf("%d unique queries were analyzed", len(explains))
 
 	if tooManyConnectionsErr != nil {
 		log.Println(tooManyConnectionsErr.Error())
