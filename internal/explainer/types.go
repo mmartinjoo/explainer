@@ -64,7 +64,7 @@ func (q Query) HasJoins() bool {
 	return strings.Contains(strings.ToLower(q.SQL), "join ") && strings.Contains(strings.ToLower(q.SQL), "on ")
 }
 
-type Explain struct {
+type ExplainResult struct {
 	Query        Query
 	ID           int
 	SelectType   sql.NullString
@@ -80,14 +80,14 @@ type Explain struct {
 	Extra        sql.NullString
 }
 
-func (e Explain) UsingIndex() bool {
+func (e ExplainResult) UsingIndex() bool {
 	return strings.Contains(e.Extra.String, "Using index")
 }
 
-func (e Explain) UsingFilesort() bool {
+func (e ExplainResult) UsingFilesort() bool {
 	return strings.Contains(e.Extra.String, "Using filesort")
 }
 
-func (e Explain) UsingTemporary() bool {
+func (e ExplainResult) UsingTemporary() bool {
 	return strings.Contains(e.Extra.String, "Using temporary")
 }

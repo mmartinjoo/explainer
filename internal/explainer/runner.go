@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-func RunExplain(db *sql.DB, queries []Query) ([]Explain, error) {
-	res := make([]Explain, 0)
+func RunExplain(db *sql.DB, queries []Query) ([]ExplainResult, error) {
+	res := make([]ExplainResult, 0)
 	for i, q := range queries {
 		rows, err := db.Query(q.AsExplain(), q.Bindings...)
 		if err != nil && strings.Contains(err.Error(), "Too many connections") {
@@ -28,7 +28,7 @@ func RunExplain(db *sql.DB, queries []Query) ([]Explain, error) {
 		}
 
 		if rows.Next() {
-			var explain Explain
+			var explain ExplainResult
 			explain.Query = q
 
 			err = rows.Scan(

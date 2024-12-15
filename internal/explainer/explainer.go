@@ -15,7 +15,11 @@ const (
 	maxGrade = 5
 )
 
-func Analyze(db *sql.DB, explains []Explain) ([]Result, error) {
+//func ExplainResult(db *sql.DB, logFilePath string) {
+//
+//}
+
+func Analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)
@@ -47,7 +51,7 @@ func Analyze(db *sql.DB, explains []Explain) ([]Result, error) {
 }
 
 type Result struct {
-	Explain                 Explain
+	Explain                 ExplainResult
 	AccessTypeWarning       string
 	FilterWarning           string
 	FilesortWarning         string
@@ -59,7 +63,7 @@ type Result struct {
 	Grade                   float32
 }
 
-func newResult(expl Explain) Result {
+func newResult(expl ExplainResult) Result {
 	return Result{
 		Explain: expl,
 		Grade:   5,
