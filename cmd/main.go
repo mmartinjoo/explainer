@@ -64,7 +64,7 @@ func analyzeTable(db *sql.DB, table string) {
 }
 
 func analyzeLogs(db *sql.DB, path string) {
-	queries, err := explainer.ParseLog(path)
+	queries, err := explainer.ParseLogs(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func analyzeLogs(db *sql.DB, path string) {
 	log.Printf("Analyzing %d unique queries...\n", len(queries))
 
 	var tooManyConnectionsErr error
-	explains, err := explainer.ExplainMany(db, queries)
+	explains, err := explainer.RunExplain(db, queries)
 	if err != nil && !errors.As(err, &explainer.TooManyConnectionsError{}) {
 		log.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func analyzeLogs(db *sql.DB, path string) {
 		tooManyConnectionsErr = err
 	}
 
-	results, err := analyzer.Analyze(db, explains)
+	results, err := explainer.Analyze(db, explains)
 	if err != nil {
 		log.Fatal(err)
 	}

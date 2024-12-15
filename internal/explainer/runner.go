@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func ExplainMany(db *sql.DB, queries []Query) ([]Explain, error) {
+func RunExplain(db *sql.DB, queries []Query) ([]Explain, error) {
 	res := make([]Explain, 0)
 	for i, q := range queries {
 		rows, err := db.Query(q.AsExplain(), q.Bindings...)

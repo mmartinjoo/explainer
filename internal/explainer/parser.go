@@ -9,26 +9,26 @@ import (
 	"strings"
 )
 
-func ParseLog(filename string) ([]Query, error) {
+func ParseLogs(filename string) ([]Query, error) {
 	logs, err := readQueries(filename)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
 	}
 	queries, err := rejectWriteQueries(logs)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
 	}
 	selectQueries, err := sanitizeQueries(queries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
 	}
 	uniqueQueries, err := getUniqueQueries(selectQueries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
 	}
 	res, err := constructQueries(uniqueQueries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLog: %w", err)
+		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
 	}
 	return res, nil
 }
@@ -110,7 +110,7 @@ func constructQueries(selectQueries []string) ([]Query, error) {
 	queries := make([]Query, 0)
 	for _, q := range selectQueries {
 		if !hasBindings(q) {
-			queries = append(queries, NewQuery(q))
+			queries = append(queries, newQuery(q))
 			continue
 		}
 		bindings, err := getBindings(q)
@@ -123,7 +123,7 @@ func constructQueries(selectQueries []string) ([]Query, error) {
 		}
 		idx := strings.LastIndex(q, "[")
 		sql := strings.Trim(q[:idx], " ")
-		queries = append(queries, NewQueryWithBindings(sql, bindings))
+		queries = append(queries, newQueryWithBindings(sql, bindings))
 	}
 	return queries, nil
 }

@@ -10,7 +10,11 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-var errEmptyResults = errors.New("empty results")
+var (
+	minGrade        = 1
+	maxGrade        = 5
+	errEmptyResults = errors.New("empty results")
+)
 
 func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	res := newTableAnalysisResult()

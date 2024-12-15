@@ -10,19 +10,19 @@ type Query struct {
 	Bindings []any
 }
 
-func NewQuery(sql string) Query {
+func newQuery(sql string) Query {
 	return Query{
 		SQL:      sql,
 		Bindings: make([]any, 0),
 	}
 }
 
-func NewQueryWithBindings(sql string, bindings []string) Query {
+func newQueryWithBindings(sql string, bindings []string) Query {
 	b := make([]any, 0)
 	for _, v := range bindings {
 		b = append(b, v)
 	}
-	q := NewQuery(sql)
+	q := newQuery(sql)
 	q.Bindings = b
 	return q
 }
