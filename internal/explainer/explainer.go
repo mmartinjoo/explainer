@@ -2,7 +2,9 @@ package explainer
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/fatih/color"
 	"log"
 	"slices"
 	"strings"
@@ -15,11 +17,50 @@ const (
 	maxGrade = 5
 )
 
-//func ExplainResult(db *sql.DB, logFilePath string) {
-//
-//}
+func Explain(db *sql.DB, logFilePath string) error {
+	queries, err := parseLogs(logFilePath)
+	if err != nil {
+		return fmt.Errorf("explainer.Explain: %w", err)
+	}
 
-func Analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
+	log.Printf("Analyzing %d unique queries...\n", len(queries))
+
+	var tooManyConnectionsErr error
+	explains, err := runExplainQueries(db, queries)
+	if err != nil && !errors.As(err, &TooManyConnectionsError{}) {
+		return fmt.Errorf("explainer.Explain: %w", err)
+	}
+	if errors.As(err, &TooManyConnectionsError{}) {
+		tooManyConnectionsErr = err
+	}
+
+	results, err := analyze(db, explains)
+	if err != nil {
+		return fmt.Errorf("explainer.Explain: %w", err)
+	}
+
+	for _, res := range results {
+		fmt.Printf("grade: %0.2f\n", res.Grade)
+		if res.Grade < 3 {
+			color.Red(res.String() + "\n")
+		}
+		if res.Grade >= 3 && res.Grade < 4 {
+			color.Yellow(res.String() + "\n")
+		}
+		if res.Grade >= 4 {
+			color.Green(res.String() + "\n")
+		}
+	}
+
+	log.Printf("%d unique queries were analyzed", len(explains))
+
+	if tooManyConnectionsErr != nil {
+		return tooManyConnectionsErr
+	}
+	return nil
+}
+
+func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)

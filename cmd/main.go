@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/mmartinjoo/explainer/internal/explainer"
 	"log"
@@ -31,7 +30,10 @@ func main() {
 			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
 			os.Exit(1)
 		}
-		analyzeLogs(db, os.Args[2])
+		err = explainer.Explain(db, os.Args[2])
+		if err != nil {
+			log.Fatal(err)
+		}
 	case "table":
 		if len(os.Args) != 3 {
 			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
@@ -60,47 +62,5 @@ func analyzeTable(db *sql.DB, table string) {
 	}
 	if res.Grade >= 4 {
 		color.Green(res.String() + "\n")
-	}
-}
-
-func analyzeLogs(db *sql.DB, path string) {
-	queries, err := explainer.ParseLogs(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Analyzing %d unique queries...\n", len(queries))
-
-	var tooManyConnectionsErr error
-	explains, err := explainer.RunExplain(db, queries)
-	if err != nil && !errors.As(err, &explainer.TooManyConnectionsError{}) {
-		log.Fatal(err)
-	}
-	if errors.As(err, &explainer.TooManyConnectionsError{}) {
-		tooManyConnectionsErr = err
-	}
-
-	results, err := explainer.Analyze(db, explains)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, res := range results {
-		fmt.Printf("grade: %0.2f\n", res.Grade)
-		if res.Grade < 3 {
-			color.Red(res.String() + "\n")
-		}
-		if res.Grade >= 3 && res.Grade < 4 {
-			color.Yellow(res.String() + "\n")
-		}
-		if res.Grade >= 4 {
-			color.Green(res.String() + "\n")
-		}
-	}
-
-	log.Printf("%d unique queries were analyzed", len(explains))
-
-	if tooManyConnectionsErr != nil {
-		log.Println(tooManyConnectionsErr.Error())
 	}
 }

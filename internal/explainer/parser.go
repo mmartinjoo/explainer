@@ -9,26 +9,26 @@ import (
 	"strings"
 )
 
-func ParseLogs(filename string) ([]Query, error) {
+func parseLogs(filename string) ([]Query, error) {
 	logs, err := readQueries(filename)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
+		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
 	queries, err := rejectWriteQueries(logs)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
+		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
 	selectQueries, err := sanitizeQueries(queries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
+		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
 	uniqueQueries, err := getUniqueQueries(selectQueries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
+		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
 	res, err := constructQueries(uniqueQueries)
 	if err != nil {
-		return nil, fmt.Errorf("explainer.ParseLogs: %w", err)
+		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
 	return res, nil
 }
