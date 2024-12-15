@@ -42,9 +42,22 @@ func main() {
 }
 
 func analyzeTable(db *sql.DB, table string) {
-	err := analyzer.AnalyzeTable(db, table)
+	log.Printf("Analyzing %s...\n", table)
+
+	res, err := analyzer.AnalyzeTable(db, table)
 	if err != nil {
 		panic(err)
+	}
+
+
+	if res.Grade <= 2 {
+		color.Red(res.String() + "\n")
+	}
+	if res.Grade == 3 {
+		color.Yellow(res.String() + "\n")
+	}
+	if res.Grade >= 4 {
+		color.Green(res.String() + "\n")
 	}
 }
 

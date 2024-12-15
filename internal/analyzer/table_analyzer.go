@@ -9,21 +9,19 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-func AnalyzeTable(db *sql.DB, table string) error {
+func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	res := newTableAnalysisResult()
 
 	indexes, err := findIndexes(db, table)
 	if err != nil {
-		return fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
 	}
 	compositeIndexes, err := findCompositeIndexes(indexes)
 	if err != nil {
-		return fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
 	}
 	res = res.analyzeCompositeIndexes(compositeIndexes)
-
-	fmt.Printf("%#v\n", res)
-	return nil
+	return res, nil
 }
 
 func findIndexes(db *sql.DB, table string) ([]Index, error) {
@@ -116,7 +114,7 @@ func (r TableAnalysisResult) analyzeCompositeIndexes(compIndexes CompositeIndexe
 			}
 
 			var msg strings.Builder
-			msg.WriteString(fmt.Sprintf("The composite index '%s' is suboptimal. Columns are not ordered based on their cardinality which can result in expensive queries\n", name))
+			msg.WriteString(fmt.Sprintf("'%s' is suboptimal. Columns are not ordered based on their cardinality which can result in expensive queries\n", name))
 			msg.WriteString(fmt.Sprintf("The optimal column order should be: %v\n", optimalColOrder))
 			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n", actualColOrder))
 			r.CompositeIndexWarnings = append(r.CompositeIndexWarnings, msg.String())
@@ -160,4 +158,16 @@ func newTableAnalysisResult() TableAnalysisResult {
 	return TableAnalysisResult{
 		Grade: 5,
 	}
+}
+
+func (r TableAnalysisResult) String() string {
+	var str strings.Builder
+	str.WriteString(fmt.Sprintf("Grade: %d/%d\n", r.Grade, maxGrade))
+	if len(r.CompositeIndexWarnings) != 0 {
+		str.WriteString("Composite index problems:\n")
+		for _, v := range r.CompositeIndexWarnings {
+			str.WriteString(fmt.Sprintf("- %s", v))
+		}
+	}
+	return str.String()
 }
