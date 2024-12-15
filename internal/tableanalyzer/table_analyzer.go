@@ -1,9 +1,11 @@
-package analyzer
+package tableanalyzer
 
 import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/fatih/color"
+	"log"
 	"slices"
 	"strings"
 
@@ -16,19 +18,39 @@ var (
 	errEmptyResults = errors.New("empty results")
 )
 
-func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
+func Analyze(db *sql.DB, table string) error {
+	log.Printf("Analyzing %s...\n", table)
+
+	res, err := analyze(db, table)
+	if err != nil {
+		return fmt.Errorf("tableanalyzer.Analyze: %w", err)
+	}
+
+	if res.Grade < 3 {
+		color.Red(res.String() + "\n")
+	}
+	if res.Grade >= 3 && res.Grade < 4 {
+		color.Yellow(res.String() + "\n")
+	}
+	if res.Grade >= 4 {
+		color.Green(res.String() + "\n")
+	}
+	return nil
+}
+
+func analyze(db *sql.DB, table string) (Result, error) {
 	res := newTableAnalysisResult()
 	res, err := res.analyzeCompositeIndexes(db, table)
 	if err != nil {
-		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
 	res, err = res.analyzeStringIndexes(db, table)
 	if err != nil {
-		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
 	res, err = res.analyzeTooLongTextColumns(db, table)
 	if err != nil {
-		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
 	return res, nil
 }
@@ -210,7 +232,7 @@ func queryMaxLen(db *sql.DB, table string, col Column) (int, error) {
 	return length, nil
 }
 
-func (r TableAnalysisResult) analyzeTooLongTextColumns(db *sql.DB, table string) (TableAnalysisResult, error) {
+func (r Result) analyzeTooLongTextColumns(db *sql.DB, table string) (Result, error) {
 	cols, err := queryTooLongTextColumns(db, table)
 	if err != nil {
 		return r, fmt.Errorf("analyzer.analyzeTooLongTextColumns: %w", err)
@@ -248,7 +270,7 @@ func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
 	return hmap, nil
 }
 
-func (r TableAnalysisResult) analyzeStringIndexes(db *sql.DB, table string) (TableAnalysisResult, error) {
+func (r Result) analyzeStringIndexes(db *sql.DB, table string) (Result, error) {
 	stringCols, err := queryStringColumns(db, table)
 	if err != nil {
 		return r, fmt.Errorf("abalyzer.analyzeStringIndexes: querying columns: %w", err)
@@ -285,7 +307,7 @@ func (r TableAnalysisResult) analyzeStringIndexes(db *sql.DB, table string) (Tab
 	return r, nil
 }
 
-func (r TableAnalysisResult) analyzeCompositeIndexes(db *sql.DB, table string) (TableAnalysisResult, error) {
+func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error) {
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
 		return r, fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
@@ -345,20 +367,20 @@ type Index struct {
 	cardinality int64
 }
 
-type TableAnalysisResult struct {
+type Result struct {
 	CompositeIndexWarnings    []string
 	StringBasedIndexWarning   string
 	TooLongTextColumnsWarning string
 	Grade                     int
 }
 
-func newTableAnalysisResult() TableAnalysisResult {
-	return TableAnalysisResult{
+func newTableAnalysisResult() Result {
+	return Result{
 		Grade: 5,
 	}
 }
 
-func (r TableAnalysisResult) String() string {
+func (r Result) String() string {
 	var str strings.Builder
 	hasProblems := false
 	str.WriteString(fmt.Sprintf("Grade: %d/%d\n", r.Grade, maxGrade))

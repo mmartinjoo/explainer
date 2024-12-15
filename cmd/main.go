@@ -7,9 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/fatih/color"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/mmartinjoo/explainer/internal/analyzer"
+	"github.com/mmartinjoo/explainer/internal/tableanalyzer"
 )
 
 func main() {
@@ -30,8 +29,7 @@ func main() {
 			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
 			os.Exit(1)
 		}
-		err = explainer.Explain(db, os.Args[2])
-		if err != nil {
+		if err = explainer.Explain(db, os.Args[2]); err != nil {
 			log.Fatal(err)
 		}
 	case "table":
@@ -39,28 +37,11 @@ func main() {
 			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
 			os.Exit(1)
 		}
-		analyzeTable(db, os.Args[2])
+		if err = tableanalyzer.Analyze(db, os.Args[2]); err != nil {
+			log.Fatal(err)
+		}
 	default:
 		fmt.Printf("Invalid argument: %s\n", os.Args[1])
 		os.Exit(1)
-	}
-}
-
-func analyzeTable(db *sql.DB, table string) {
-	log.Printf("Analyzing %s...\n", table)
-
-	res, err := analyzer.AnalyzeTable(db, table)
-	if err != nil {
-		panic(err)
-	}
-
-	if res.Grade <= 2 {
-		color.Red(res.String() + "\n")
-	}
-	if res.Grade == 3 {
-		color.Yellow(res.String() + "\n")
-	}
-	if res.Grade >= 4 {
-		color.Green(res.String() + "\n")
 	}
 }

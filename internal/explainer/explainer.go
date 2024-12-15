@@ -38,7 +38,6 @@ func Explain(db *sql.DB, logFilePath string) error {
 	}
 
 	for _, res := range results {
-		fmt.Printf("grade: %0.2f\n", res.Grade)
 		if res.Grade < 3 {
 			color.Red(res.String() + "\n")
 		}
