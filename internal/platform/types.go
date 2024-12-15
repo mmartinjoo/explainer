@@ -35,6 +35,13 @@ func (q Query) HasSelectStar() bool {
 	return strings.Contains(strings.ToLower(q.SQL), "select *")
 }
 
+func (q Query) HasSubqueryInSelect() bool {
+	fromIdx := strings.Index(strings.ToLower(q.SQL), "from")
+	sql := strings.ToLower(q.SQL[len("select"):fromIdx])
+
+	return strings.Contains(sql, "select")
+}
+
 func (q Query) HasLikePattern() bool {
 	hasLike := strings.Contains(strings.ToLower(q.SQL), "like")
 	if !hasLike {

@@ -264,11 +264,16 @@ func (r TableAnalysisResult) analyzeStringIndexes(db *sql.DB, table string) (Tab
 		}
 	}
 
+	slices.Compact(colsInIndex)
+
 	if len(colsInIndex) > 0 {
 		var msg strings.Builder
-		msg.WriteString("The following string-based columns (varchar, text, mediumtext, etc) are being part of non-FULLTEXT indexes.")
+		msg.WriteString("The following string-based columns (varchar, text, mediumtext, etc) are being part of non-FULLTEXT indexes. ")
 		msg.WriteString("It is usually a better idea to use a FULLTEXT index for columns like these because they are optimized for string data. On top of that, MySQL can only index the first 4KB of a text column so in case of a longer column it is only a partial index.\n")
 		for _, v := range colsInIndex {
+			if v == "" {
+				continue
+			}
 			msg.WriteString(fmt.Sprintf("- %s\n", v))
 		}
 		r.StringBasedIndexWarning = msg.String()
@@ -337,10 +342,10 @@ type Index struct {
 }
 
 type TableAnalysisResult struct {
-	CompositeIndexWarnings           []string
-	StringBasedIndexWarning          string
+	CompositeIndexWarnings    []string
+	StringBasedIndexWarning   string
 	TooLongTextColumnsWarning string
-	Grade                            int
+	Grade                     int
 }
 
 func newTableAnalysisResult() TableAnalysisResult {

@@ -26,6 +26,7 @@ func Analyze(db *sql.DB, explains []platform.Explain) ([]Result, error) {
 		res = res.analyzeTempTable()
 		res = res.analyzeLikePattern()
 		res = res.analyzeSelectStar()
+		res = res.analyzeSubqueryInSelect()
 		res, err := res.analyzeJoinOrder(db)
 		if err != nil {
 			log.Printf("unable to analyze join order: %s. Query: \"%s\"", err, e.Query.SQL)
@@ -47,15 +48,16 @@ func Analyze(db *sql.DB, explains []platform.Explain) ([]Result, error) {
 }
 
 type Result struct {
-	Explain            platform.Explain
-	AccessTypeWarning  string
-	FilterWarning      string
-	FilesortWarning    string
-	TempTableWarning   string
-	SelectStarWarning  string
-	LikePatternWarning string
-	JoinOrderWarning   string
-	Grade              float32
+	Explain                 platform.Explain
+	AccessTypeWarning       string
+	FilterWarning           string
+	FilesortWarning         string
+	TempTableWarning        string
+	SelectStarWarning       string
+	LikePatternWarning      string
+	JoinOrderWarning        string
+	SubqueryInSelectWarning string
+	Grade                   float32
 }
 
 func newResult(expl platform.Explain) Result {
@@ -87,6 +89,9 @@ func (r Result) String() string {
 	}
 	if len(r.JoinOrderWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Suboptimal join order: %s\n", r.JoinOrderWarning))
+	}
+	if len(r.SubqueryInSelectWarning) != 0 {
+		str.WriteString(fmt.Sprintf("Subquery in SELECT: %s\n", r.SubqueryInSelectWarning))
 	}
 	if len(r.SelectStarWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Select: %s\n", r.SelectStarWarning))
@@ -186,6 +191,14 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 	}
 
 	return r, nil
+}
+
+func (r Result) analyzeSubqueryInSelect() Result {
+	if r.Explain.Query.HasSubqueryInSelect() {
+		r.Grade = max(minGrade, r.Grade-2)
+		r.SubqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
+	}
+	return r
 }
 
 func getJoinedTables(sql string) []string {
