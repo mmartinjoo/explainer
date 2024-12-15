@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
+	"github.com/mmartinjoo/explainer/internal/platform/grade"
 	"html"
 	"os"
 )
 
 type Result interface {
-	Grader
+	grade.Grader
 	fmt.Stringer
 }
 

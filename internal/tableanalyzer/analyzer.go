@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/mmartinjoo/explainer/internal/platform/grade"
 	"log"
 	"slices"
 	"strings"
@@ -26,19 +27,23 @@ func Analyze(db *sql.DB, table string) error {
 }
 
 func analyze(db *sql.DB, table string) (Result, error) {
-	res := newTableAnalysisResult()
+	res := newResult()
+	fmt.Printf("g: %0.2f\n", res.grade)
 	res, err := res.analyzeCompositeIndexes(db, table)
 	if err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
+	fmt.Printf("g1: %0.2f\n", res.grade)
 	res, err = res.analyzeStringIndexes(db, table)
 	if err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
+	fmt.Printf("g2: %0.2f\n", res.grade)
 	res, err = res.analyzeTooLongTextColumns(db, table)
 	if err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
+	fmt.Printf("g3: %0.2f\n", res.grade)
 	return res, nil
 }
 
@@ -232,6 +237,7 @@ func (r Result) analyzeTooLongTextColumns(db *sql.DB, table string) (Result, err
 			msg.WriteString(fmt.Sprintf("- Column: %s, max length in table: %d", c.col.name, c.maxLen))
 		}
 		r.tooLongTextColumnsWarning = msg.String()
+		r.grade = grade.Dec(r.grade, 0.25)
 	}
 	return r, nil
 }
@@ -290,6 +296,7 @@ func (r Result) analyzeStringIndexes(db *sql.DB, table string) (Result, error) {
 			msg.WriteString(fmt.Sprintf("- %s\n", v))
 		}
 		r.stringBasedIndexWarning = msg.String()
+		r.grade = grade.Dec(r.grade, 0.5)
 	}
 	return r, nil
 }
@@ -322,8 +329,10 @@ func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error
 			msg.WriteString(fmt.Sprintf("The optimal column order should be: %v\n", optimalColOrder))
 			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n", actualColOrder))
 			r.compositeIndexWarnings = append(r.compositeIndexWarnings, msg.String())
-			r.grade = max(platform.MinGrade, r.grade-1)
 		}
+	}
+	if len(r.compositeIndexWarnings) != 0 {
+		r.grade = grade.Dec(r.grade, 2)
 	}
 	return r, nil
 }
@@ -361,7 +370,7 @@ type Result struct {
 	grade                     float32
 }
 
-func newTableAnalysisResult() Result {
+func newResult() Result {
 	return Result{
 		grade: 5,
 	}
@@ -374,7 +383,7 @@ func (r Result) Grade() float32 {
 func (r Result) String() string {
 	var str strings.Builder
 	hasProblems := false
-	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, platform.MaxGrade))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%0.2f\n", r.grade, grade.MaxGrade))
 
 	if len(r.compositeIndexWarnings) != 0 {
 		hasProblems = true
