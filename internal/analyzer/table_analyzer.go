@@ -2,12 +2,15 @@ package analyzer
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
+
+var errEmptyResults = errors.New("empty results")
 
 func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	res := newTableAnalysisResult()
@@ -16,6 +19,10 @@ func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
 	res, err = res.analyzeStringIndexes(db, table)
+	if err != nil {
+		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
+	}
+	res, err = res.analyzeUnnecessaryLongTextColumns(db, table)
 	if err != nil {
 		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
@@ -139,6 +146,83 @@ func queryIndexes(db *sql.DB, table string) ([]Index, error) {
 	return indexes, nil
 }
 
+func queryUnnecessaryLongTextColumns(db *sql.DB, table string) ([]TooLongTextColumn, error) {
+	stringCols, err := queryStringColumns(db, table)
+	if err != nil {
+		return nil, fmt.Errorf("abalyzer.queryUnnecessaryLongTextColumns: querying columns: %w", err)
+	}
+
+	longTextCols := make([]Column, 0)
+	for _, c := range stringCols {
+		if c.dataType == "longtext" {
+			longTextCols = append(longTextCols, c)
+		}
+	}
+
+	res := make([]TooLongTextColumn, 0)
+	for _, c := range longTextCols {
+		maxLen, err := queryMaxLen(db, table, c)
+		if err != nil {
+			if errors.As(err, errEmptyResults) {
+				continue
+			}
+			return nil, fmt.Errorf("abalyzer.queryUnnecessaryLongTextColumns: %w", err)
+		}
+		// The length of a mediumtext column
+		if maxLen < 16777215 {
+			res = append(res, newTooLongTextColumn(c, maxLen))
+		}
+	}
+	return res, nil
+}
+
+type TooLongTextColumn struct {
+	col    Column
+	maxLen int
+}
+
+func newTooLongTextColumn(col Column, maxLen int) TooLongTextColumn {
+	return TooLongTextColumn{
+		col:    col,
+		maxLen: maxLen,
+	}
+}
+
+func queryMaxLen(db *sql.DB, table string, col Column) (int, error) {
+	rows, err := db.Query(fmt.Sprintf("select max(length(%s)) from %s", col.name, table))
+	if err != nil {
+		return -1, fmt.Errorf("analyzer.queryIndexes: exeuting query: %w", err)
+	}
+	defer rows.Close()
+
+	var length int
+	if rows.Next() {
+		if err := rows.Scan(&length); err != nil {
+			return -1, fmt.Errorf("analyzer.queryIndexes: scanning length: %w", err)
+		}
+	} else {
+		return -1, fmt.Errorf("analyzer.queryMaxLan: %w", errEmptyResults)
+	}
+	return length, nil
+}
+
+func (r TableAnalysisResult) analyzeUnnecessaryLongTextColumns(db *sql.DB, table string) (TableAnalysisResult, error) {
+	cols, err := queryUnnecessaryLongTextColumns(db, table)
+	if err != nil {
+		return r, fmt.Errorf("analyzer.analyzeUnnecessaryLongTextColumns: %w", err)
+	}
+
+	if len(cols) != 0 {
+		var msg strings.Builder
+		msg.WriteString("The following columns are type of longtext but based on the data in the table they should be smaller columns:\n")
+		for _, c := range cols {
+			msg.WriteString(fmt.Sprintf("- Column: %s, max length in table: %d", c.col.name, c.maxLen))
+		}
+		r.UnecessaryLongTextColumnsWarning = msg.String()
+	}
+	return r, nil
+}
+
 type CompositeIndexes map[string][]Index
 type CompositeIndex []Index
 
@@ -182,8 +266,11 @@ func (r TableAnalysisResult) analyzeStringIndexes(db *sql.DB, table string) (Tab
 
 	if len(colsInIndex) > 0 {
 		var msg strings.Builder
-		msg.WriteString("The following string-based columns (varchar, text, mediumtext, etc) are being part of non-FULLTEXT indexes:\n")
-		msg.WriteString(fmt.Sprintf("%v\n", colsInIndex))
+		msg.WriteString("The following string-based columns (varchar, text, mediumtext, etc) are being part of non-FULLTEXT indexes.")
+		msg.WriteString("It is usually a better idea to use a FULLTEXT index for columns like these because they are optimized for string data. On top of that, MySQL can only index the first 4KB of a text column so in case of a longer column it is only a partial index.\n")
+		for _, v := range colsInIndex {
+			msg.WriteString(fmt.Sprintf("- %s\n", v))
+		}
 		r.StringBasedIndexWarning = msg.String()
 	}
 	return r, nil
@@ -250,9 +337,10 @@ type Index struct {
 }
 
 type TableAnalysisResult struct {
-	CompositeIndexWarnings  []string
-	StringBasedIndexWarning string
-	Grade                   int
+	CompositeIndexWarnings           []string
+	StringBasedIndexWarning          string
+	UnecessaryLongTextColumnsWarning string
+	Grade                            int
 }
 
 func newTableAnalysisResult() TableAnalysisResult {
@@ -277,7 +365,11 @@ func (r TableAnalysisResult) String() string {
 		hasProblems = true
 		str.WriteString("String-based index problems:\n")
 		str.WriteString(r.StringBasedIndexWarning)
-		str.WriteString("It is usually a better idea to use a FULLTEXT index for columns like these because they are optimized for string data. On top of that, MySQL can only index the first 4KB of a text column so in case of a longer column it is only a partial index.")
+	}
+	if len(r.UnecessaryLongTextColumnsWarning) != 0 {
+		hasProblems = true
+		str.WriteString("\nToo long text columns:\n")
+		str.WriteString(r.UnecessaryLongTextColumnsWarning)
 	}
 
 	if !hasProblems {
