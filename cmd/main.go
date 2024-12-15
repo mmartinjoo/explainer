@@ -28,7 +28,11 @@ func main() {
 
 	switch os.Args[1] {
 	case "logs":
-		analyzeLogs(db)
+		if len(os.Args) != 3 {
+			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
+			os.Exit(1)
+		}
+		analyzeLogs(db, os.Args[2])
 	case "table":
 		if len(os.Args) != 3 {
 			fmt.Printf("Usage:\nexplainer logs <path> to analyze a log file of SQL queries\nexplainer table <table> to analyze a table\n")
@@ -49,7 +53,6 @@ func analyzeTable(db *sql.DB, table string) {
 		panic(err)
 	}
 
-
 	if res.Grade <= 2 {
 		color.Red(res.String() + "\n")
 	}
@@ -61,8 +64,8 @@ func analyzeTable(db *sql.DB, table string) {
 	}
 }
 
-func analyzeLogs(db *sql.DB) {
-	queries, err := parser.Parse("/Users/joomartin/code/explainer/queries.log")
+func analyzeLogs(db *sql.DB, path string) {
+	queries, err := parser.Parse(path)
 	if err != nil {
 		log.Fatal(err)
 	}
