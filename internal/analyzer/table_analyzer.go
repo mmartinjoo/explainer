@@ -11,29 +11,80 @@ import (
 
 func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	res := newTableAnalysisResult()
-
-	indexes, err := queryIndexes(db, table)
+	res, err := res.analyzeCompositeIndexes(db, table)
 	if err != nil {
-		return res, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
-	compositeIndexes, err := findCompositeIndexes(indexes)
-	if err != nil {
-		return res, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
-	}
-	res = res.analyzeCompositeIndexes(compositeIndexes)
 	return res, nil
 }
 
-func queryIndexes(db *sql.DB, table string) ([]Index, error) {
-	rows, err := db.Query(fmt.Sprintf("show index from %s", table))
+// queryStringColumns returns varchar, mediumtext, text, etc columns from a table
+func queryStringColumns(db *sql.DB, table string) ([]Column, error) {
+	rows, err := db.Query(fmt.Sprintf("show columns from %s", table))
 	if err != nil {
-		return nil, fmt.Errorf("analyzer.findIndexes: exeuting query: %w", err)
+		return nil, fmt.Errorf("analyzer.queryStringColumns: exeuting query: %w", err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, fmt.Errorf("analyzer.findIndexes: reading columns: %w", err)
+		return nil, fmt.Errorf("analyzer.queryStringColumns: reading columns: %w", err)
+	}
+	values := make([]interface{}, len(cols))
+	valuePtrs := make([]interface{}, len(cols))
+
+	columns := make([]Column, 0)
+	for rows.Next() {
+		for i := range cols {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, fmt.Errorf("analyzer.queryStringColumns: scanning rows: %w", err)
+		}
+
+		var column Column
+		name, err := platform.ConvertString(values[0])
+		if err != nil {
+			return nil, fmt.Errorf("analyzer.queryStringColumns: parsing name: %w", err)
+		}
+		column.name = name
+
+		dataType, err := platform.ConvertString(values[1])
+		if err != nil {
+			return nil, fmt.Errorf("analyzer.queryStringColumns: parsing dataType: %w", err)
+		}
+		column.dataType = dataType
+
+		key, err := platform.ConvertString(values[3])
+		if err != nil {
+			return nil, fmt.Errorf("analyzer.queryStringColumns: parsing key: %w", err)
+		}
+		column.key = key
+
+		if strings.Contains(column.dataType, "varchar") {
+			columns = append(columns, column)
+			continue
+		}
+
+		if slices.Contains([]string{"tinytext", "mediumtext", "longtext"}, column.dataType) {
+			columns = append(columns, column)
+			continue
+		}
+	}
+	return columns, nil
+}
+
+func queryIndexes(db *sql.DB, table string) ([]Index, error) {
+	rows, err := db.Query(fmt.Sprintf("show index from %s", table))
+	if err != nil {
+		return nil, fmt.Errorf("analyzer.queryIndexes: exeuting query: %w", err)
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("analyzer.queryIndexes: reading columns: %w", err)
 	}
 	values := make([]interface{}, len(cols))
 	valuePtrs := make([]interface{}, len(cols))
@@ -45,31 +96,31 @@ func queryIndexes(db *sql.DB, table string) ([]Index, error) {
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
-			return nil, fmt.Errorf("analyzer.findIndexes: scanning rows: %w", err)
+			return nil, fmt.Errorf("analyzer.queryIndexes: scanning rows: %w", err)
 		}
 
 		var idx Index
 		key, err := platform.ConvertString(values[2])
 		if err != nil {
-			return nil, fmt.Errorf("analyzer.findIndexes: parsing key: %w", err)
+			return nil, fmt.Errorf("analyzer.queryIndexes: parsing key: %w", err)
 		}
 		idx.keyName = key
 
 		col, err := platform.ConvertString(values[4])
 		if err != nil {
-			return nil, fmt.Errorf("analyzer.findIndexes: parsing col: %w", err)
+			return nil, fmt.Errorf("analyzer.queryIndexes: parsing col: %w", err)
 		}
 		idx.column = col
 
 		seq, ok := values[3].(int64)
 		if !ok {
-			return nil, fmt.Errorf("analyzer.findIndexes: parsing sequence: %w", err)
+			return nil, fmt.Errorf("analyzer.queryIndexes: parsing sequence: %w", err)
 		}
 		idx.seq = seq
 
 		card, ok := values[6].(int64)
 		if !ok {
-			return nil, fmt.Errorf("analyzer.findIndexes: parsing cardinality: %w", err)
+			return nil, fmt.Errorf("analyzer.queryIndexes: parsing cardinality: %w", err)
 		}
 		idx.cardinality = card
 
@@ -99,7 +150,16 @@ func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
 	return hmap, nil
 }
 
-func (r TableAnalysisResult) analyzeCompositeIndexes(compIndexes CompositeIndexes) TableAnalysisResult {
+func (r TableAnalysisResult) analyzeCompositeIndexes(db *sql.DB, table string) (TableAnalysisResult, error) {
+	indexes, err := queryIndexes(db, table)
+	if err != nil {
+		return r, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+	}
+	compIndexes, err := findCompositeIndexes(indexes)
+	if err != nil {
+		return r, fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+	}
+
 	for name, compIdx := range compIndexes {
 		optimalIdx, ok := checkCardinality(compIdx)
 		if !ok {
@@ -121,7 +181,7 @@ func (r TableAnalysisResult) analyzeCompositeIndexes(compIndexes CompositeIndexe
 			r.Grade = max(minGrade, r.Grade-1)
 		}
 	}
-	return r
+	return r, nil
 }
 
 // checkCardinality checks if columns in a composite index are ordered based on their cardinality
@@ -178,4 +238,10 @@ func (r TableAnalysisResult) String() string {
 	}
 
 	return str.String()
+}
+
+type Column struct {
+	name     string
+	dataType string
+	key      string
 }
