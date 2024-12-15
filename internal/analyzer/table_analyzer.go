@@ -22,7 +22,7 @@ func AnalyzeTable(db *sql.DB, table string) (TableAnalysisResult, error) {
 	if err != nil {
 		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
-	res, err = res.analyzeUnnecessaryLongTextColumns(db, table)
+	res, err = res.analyzeTooLongTextColumns(db, table)
 	if err != nil {
 		return res, fmt.Errorf("parser.AnalyzeTable: %w", err)
 	}
@@ -146,10 +146,10 @@ func queryIndexes(db *sql.DB, table string) ([]Index, error) {
 	return indexes, nil
 }
 
-func queryUnnecessaryLongTextColumns(db *sql.DB, table string) ([]TooLongTextColumn, error) {
+func queryTooLongTextColumns(db *sql.DB, table string) ([]TooLongTextColumn, error) {
 	stringCols, err := queryStringColumns(db, table)
 	if err != nil {
-		return nil, fmt.Errorf("abalyzer.queryUnnecessaryLongTextColumns: querying columns: %w", err)
+		return nil, fmt.Errorf("abalyzer.queryTooLongTextColumns: querying columns: %w", err)
 	}
 
 	longTextCols := make([]Column, 0)
@@ -166,7 +166,7 @@ func queryUnnecessaryLongTextColumns(db *sql.DB, table string) ([]TooLongTextCol
 			if errors.As(err, errEmptyResults) {
 				continue
 			}
-			return nil, fmt.Errorf("abalyzer.queryUnnecessaryLongTextColumns: %w", err)
+			return nil, fmt.Errorf("abalyzer.queryTooLongTextColumns: %w", err)
 		}
 		// The length of a mediumtext column
 		if maxLen < 16777215 {
@@ -206,10 +206,10 @@ func queryMaxLen(db *sql.DB, table string, col Column) (int, error) {
 	return length, nil
 }
 
-func (r TableAnalysisResult) analyzeUnnecessaryLongTextColumns(db *sql.DB, table string) (TableAnalysisResult, error) {
-	cols, err := queryUnnecessaryLongTextColumns(db, table)
+func (r TableAnalysisResult) analyzeTooLongTextColumns(db *sql.DB, table string) (TableAnalysisResult, error) {
+	cols, err := queryTooLongTextColumns(db, table)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.analyzeUnnecessaryLongTextColumns: %w", err)
+		return r, fmt.Errorf("analyzer.analyzeTooLongTextColumns: %w", err)
 	}
 
 	if len(cols) != 0 {
@@ -218,7 +218,7 @@ func (r TableAnalysisResult) analyzeUnnecessaryLongTextColumns(db *sql.DB, table
 		for _, c := range cols {
 			msg.WriteString(fmt.Sprintf("- Column: %s, max length in table: %d", c.col.name, c.maxLen))
 		}
-		r.UnecessaryLongTextColumnsWarning = msg.String()
+		r.TooLongTextColumnsWarning = msg.String()
 	}
 	return r, nil
 }
@@ -339,7 +339,7 @@ type Index struct {
 type TableAnalysisResult struct {
 	CompositeIndexWarnings           []string
 	StringBasedIndexWarning          string
-	UnecessaryLongTextColumnsWarning string
+	TooLongTextColumnsWarning string
 	Grade                            int
 }
 
@@ -366,10 +366,10 @@ func (r TableAnalysisResult) String() string {
 		str.WriteString("String-based index problems:\n")
 		str.WriteString(r.StringBasedIndexWarning)
 	}
-	if len(r.UnecessaryLongTextColumnsWarning) != 0 {
+	if len(r.TooLongTextColumnsWarning) != 0 {
 		hasProblems = true
 		str.WriteString("\nToo long text columns:\n")
-		str.WriteString(r.UnecessaryLongTextColumnsWarning)
+		str.WriteString(r.TooLongTextColumnsWarning)
 	}
 
 	if !hasProblems {
