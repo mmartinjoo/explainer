@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var errEmptyResults = errors.New("empty results")
+
 type TooLongTextColumn struct {
 	col    Column
 	maxLen int
@@ -155,7 +157,7 @@ func queryTooLongTextColumns(db *sql.DB, table string) ([]TooLongTextColumn, err
 	for _, c := range longTextCols {
 		maxLen, err := queryMaxLen(db, table, c)
 		if err != nil {
-			if errors.As(err, errEmptyResults) {
+			if errors.Is(err, errEmptyResults) {
 				continue
 			}
 			return nil, fmt.Errorf("abalyzer.queryTooLongTextColumns: %w", err)
@@ -181,7 +183,7 @@ func queryMaxLen(db *sql.DB, table string, col Column) (int, error) {
 			return -1, fmt.Errorf("analyzer.queryIndexes: scanning length: %w", err)
 		}
 	} else {
-		return -1, fmt.Errorf("analyzer.queryMaxLan: %w", errEmptyResults)
+		return -1, errEmptyResults
 	}
 	return length, nil
 }
