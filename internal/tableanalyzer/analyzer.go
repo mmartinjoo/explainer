@@ -11,11 +11,6 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
-const (
-	minGrade = 1
-	maxGrade = 5
-)
-
 var errEmptyResults = errors.New("empty results")
 
 func Analyze(db *sql.DB, table string) error {
@@ -327,7 +322,7 @@ func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error
 			msg.WriteString(fmt.Sprintf("The optimal column order should be: %v\n", optimalColOrder))
 			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n", actualColOrder))
 			r.compositeIndexWarnings = append(r.compositeIndexWarnings, msg.String())
-			r.grade = max(minGrade, r.grade-1)
+			r.grade = max(platform.MinGrade, r.grade-1)
 		}
 	}
 	return r, nil
@@ -379,7 +374,7 @@ func (r Result) Grade() float32 {
 func (r Result) String() string {
 	var str strings.Builder
 	hasProblems := false
-	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, maxGrade))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, platform.MaxGrade))
 
 	if len(r.compositeIndexWarnings) != 0 {
 		hasProblems = true

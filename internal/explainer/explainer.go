@@ -10,11 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	minGrade = 1
-	maxGrade = 5
-)
-
 func Explain(db *sql.DB, logFilePath string) error {
 	queries, err := parseLogs(logFilePath)
 	if err != nil {
@@ -107,7 +102,7 @@ func (r Result) Grade() float32 {
 func (r Result) String() string {
 	var str strings.Builder
 	str.WriteString(fmt.Sprintf("Query: %s\n", r.explain.Query.SQL))
-	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, maxGrade))
+	str.WriteString(fmt.Sprintf("grade: %0.2f/%d\n", r.grade, platform.MaxGrade))
 
 	if len(r.accessTypeWarning) != 0 {
 		str.WriteString(fmt.Sprintf("Access type: %s\n", r.accessTypeWarning))
@@ -167,7 +162,7 @@ func (r Result) analyzeAccessType() Result {
 
 func (r Result) analyzeFilteredRows() Result {
 	if r.explain.Filtered.Float64 < 50.0 {
-		r.grade = max(minGrade, r.grade-1)
+		r.grade = max(platform.MinGrade, r.grade-1)
 		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
 	}
 	return r
@@ -175,7 +170,7 @@ func (r Result) analyzeFilteredRows() Result {
 
 func (r Result) analyzeFilesort() Result {
 	if r.explain.UsingFilesort() {
-		r.grade = max(minGrade, r.grade-0.5)
+		r.grade = max(platform.MinGrade, r.grade-0.5)
 		r.filesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
 	}
 	return r
@@ -183,7 +178,7 @@ func (r Result) analyzeFilesort() Result {
 
 func (r Result) analyzeTempTable() Result {
 	if r.explain.UsingTemporary() {
-		r.grade = max(minGrade, r.grade-0.5)
+		r.grade = max(platform.MinGrade, r.grade-0.5)
 		r.tempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
 	}
 	return r
@@ -191,7 +186,7 @@ func (r Result) analyzeTempTable() Result {
 
 func (r Result) analyzeSelectStar() Result {
 	if r.explain.Query.HasSelectStar() {
-		r.grade = max(minGrade, r.grade-0.25)
+		r.grade = max(platform.MinGrade, r.grade-0.25)
 		r.selectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
 	}
 	return r
@@ -200,7 +195,7 @@ func (r Result) analyzeSelectStar() Result {
 func (r Result) analyzeLikePattern() Result {
 	if r.explain.Query.HasLikePattern() {
 		r.likePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
-		r.grade = max(minGrade, r.grade-0.5)
+		r.grade = max(platform.MinGrade, r.grade-0.5)
 	}
 	return r
 }
@@ -224,7 +219,7 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 
 	if slices.Compare(counts, countsDesc) != 0 {
 		r.joinOrderWarning = "Tables in the query might be joined in a suboptimal way. MySQL can perform better if you join smaller tables earlier and larger ones later. If it's possible, of course."
-		r.grade = max(minGrade, r.grade-0.25)
+		r.grade = max(platform.MinGrade, r.grade-0.25)
 	}
 
 	return r, nil
@@ -232,7 +227,7 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 
 func (r Result) analyzeSubqueryInSelect() Result {
 	if r.explain.Query.HasSubqueryInSelect() {
-		r.grade = max(minGrade, r.grade-2)
+		r.grade = max(platform.MinGrade, r.grade-2)
 		r.subqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
 	}
 	return r
