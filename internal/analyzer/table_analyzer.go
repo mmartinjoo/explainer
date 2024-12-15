@@ -3,6 +3,8 @@ package analyzer
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
 func AnalyzeTable(db *sql.DB, table string) error {
@@ -30,17 +32,17 @@ func AnalyzeTable(db *sql.DB, table string) error {
 		}
 
 		var idx Index
-		keySlice, ok := values[2].([]byte)
-		if !ok {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing key name: %w", err)
+		key, err := platform.ConvertString(values[2])
+		if err != nil {
+			return fmt.Errorf("analyzer.AnalyzeTable: parsing key: %w", err)
 		}
-		idx.keyName = string(keySlice)
+		idx.keyName = key
 
-		colSlice, ok := values[4].([]byte)
-		if !ok {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing column: %w", err)
+		col, err := platform.ConvertString(values[4])
+		if err != nil {
+			return fmt.Errorf("analyzer.AnalyzeTable: parsing col: %w", err)
 		}
-		idx.column = string(colSlice)
+		idx.column = col
 
 		seq, ok := values[3].(int64)
 		if !ok {
