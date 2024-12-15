@@ -3,20 +3,36 @@ package analyzer
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/mmartinjoo/explainer/internal/platform"
 )
 
 func AnalyzeTable(db *sql.DB, table string) error {
+	indexes, err := findIndexes(db, table)
+	if err != nil {
+		return fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+	}
+
+	compositeIndexes, err := findCompositeIndexes(indexes)
+	if err != nil {
+		return fmt.Errorf("analyzer.AnalyzeTable: %w", err)
+	}
+
+	fmt.Printf("%#v\n", compositeIndexes)
+	return nil
+}
+
+func findIndexes(db *sql.DB, table string) ([]Index, error) {
 	rows, err := db.Query(fmt.Sprintf("show index from %s", table))
 	if err != nil {
-		return fmt.Errorf("analyzer.AnalyzeTable: exeuting query: %w", err)
+		return nil, fmt.Errorf("analyzer.findIndexes: exeuting query: %w", err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return fmt.Errorf("analyzer.AnalyzeTable: reading columns: %w", err)
+		return nil, fmt.Errorf("analyzer.findIndexes: reading columns: %w", err)
 	}
 	values := make([]interface{}, len(cols))
 	valuePtrs := make([]interface{}, len(cols))
@@ -28,39 +44,57 @@ func AnalyzeTable(db *sql.DB, table string) error {
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
-			return fmt.Errorf("analyzer.AnalyzeTable: scanning rows: %w", err)
+			return nil, fmt.Errorf("analyzer.findIndexes: scanning rows: %w", err)
 		}
 
 		var idx Index
 		key, err := platform.ConvertString(values[2])
 		if err != nil {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing key: %w", err)
+			return nil, fmt.Errorf("analyzer.findIndexes: parsing key: %w", err)
 		}
 		idx.keyName = key
 
 		col, err := platform.ConvertString(values[4])
 		if err != nil {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing col: %w", err)
+			return nil, fmt.Errorf("analyzer.findIndexes: parsing col: %w", err)
 		}
 		idx.column = col
 
 		seq, ok := values[3].(int64)
 		if !ok {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing sequence: %w", err)
+			return nil, fmt.Errorf("analyzer.findIndexes: parsing sequence: %w", err)
 		}
 		idx.seq = seq
 
 		card, ok := values[6].(int64)
 		if !ok {
-			return fmt.Errorf("analyzer.AnalyzeTable: parsing cardinality: %w", err)
+			return nil, fmt.Errorf("analyzer.findIndexes: parsing cardinality: %w", err)
 		}
 		idx.cardinality = card
 
 		indexes = append(indexes, idx)
 	}
+	return indexes, nil
+}
 
-	fmt.Printf("indexes: %#v\n", indexes)
-	return nil
+type CompositeIndexes map[string][]Index
+
+func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
+	hmap := make(CompositeIndexes)
+	for _, idx := range indexes {
+		hmap[idx.keyName] = append(hmap[idx.keyName], idx)
+	}
+	for k, v := range hmap {
+		if len(v) == 1 {
+			delete(hmap, k)
+		}
+	}
+	for k := range hmap {
+		slices.SortFunc(hmap[k], func(a, b Index) int {
+			return int(a.seq) - int(b.seq)
+		})
+	}
+	return hmap, nil
 }
 
 type Index struct {
