@@ -22,8 +22,6 @@ func CountRows(db *sql.DB, table string) (int, error) {
 		if err := rows.Scan(&count); err != nil {
 			return -1, fmt.Errorf("query.CountRows: scanning count: %w", err)
 		}
-	} else {
-		return -1, fmt.Errorf("query.CountRows: %w", ErrEmptyResults)
 	}
 	return count, nil
 }
