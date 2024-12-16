@@ -74,3 +74,40 @@ func TestCheckStringIndexes(t *testing.T) {
 	assert.Contains(t, res.stringBasedIndexWarning, "c2")
 	assert.NotContains(t, res.stringBasedIndexWarning, "c3")
 }
+
+func TestCheckCompositeIndexes(t *testing.T) {
+	db := &sql.DB{}
+	res := newResult()
+
+	patches := gomonkey.ApplyFunc(queryIndexes, func(db *sql.DB, table string) ([]Index, error) {
+		return []Index{
+			{
+				keyName:     "idx1",
+				indexType:   "BTREE",
+				seq:         1,
+				column:      "c1",
+				cardinality: 10,
+			},
+			{
+				keyName:     "idx1",
+				indexType:   "BTREE",
+				seq:         2,
+				column:      "c2",
+				cardinality: 30,
+			},
+			{
+				keyName:     "idx1",
+				indexType:   "BTREE",
+				seq:         3,
+				column:      "c3",
+				cardinality: 20,
+			},
+		}, nil
+	})
+	defer patches.Reset()
+
+	err := res.checkCompositeIndexes(db, "table")
+	assert.Nil(t, err)
+	assert.Equal(t, float32(3), res.grade)
+	assert.NotNil(t, res.compositeIndexWarnings)
+}
