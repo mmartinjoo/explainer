@@ -51,31 +51,28 @@ func Analyze(db *sql.DB, table string) error {
 		return fmt.Errorf("tableanalyzer.Analyze: %w", err)
 	}
 
-	platform.PrintResults(res)
+	platform.PrintResults(&res)
 	return nil
 }
 
 func analyze(db *sql.DB, table string) (Result, error) {
 	res := newResult()
-	res, err := res.analyzeCompositeIndexes(db, table)
-	if err != nil {
+	if err := res.analyzeCompositeIndexes(db, table); err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
-	res, err = res.analyzeStringIndexes(db, table)
-	if err != nil {
+	if err := res.analyzeStringIndexes(db, table); err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
-	res, err = res.analyzeTooLongTextColumns(db, table)
-	if err != nil {
+	if err := res.analyzeTooLongTextColumns(db, table); err != nil {
 		return res, fmt.Errorf("parser.analyze: %w", err)
 	}
 	return res, nil
 }
 
-func (r Result) analyzeTooLongTextColumns(db *sql.DB, table string) (Result, error) {
+func (r *Result) analyzeTooLongTextColumns(db *sql.DB, table string) error {
 	cols, err := queryTooLongTextColumns(db, table)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.analyzeTooLongTextColumns: %w", err)
+		return fmt.Errorf("analyzer.analyzeTooLongTextColumns: %w", err)
 	}
 
 	if len(cols) != 0 {
@@ -87,7 +84,7 @@ func (r Result) analyzeTooLongTextColumns(db *sql.DB, table string) (Result, err
 		r.tooLongTextColumnsWarning = msg.String()
 		r.grade = grade.Dec(r.grade, 0.25)
 	}
-	return r, nil
+	return nil
 }
 
 func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
@@ -108,15 +105,15 @@ func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
 	return hmap, nil
 }
 
-func (r Result) analyzeStringIndexes(db *sql.DB, table string) (Result, error) {
+func (r *Result) analyzeStringIndexes(db *sql.DB, table string) error {
 	stringCols, err := queryStringColumns(db, table)
 	if err != nil {
-		return r, fmt.Errorf("abalyzer.analyzeStringIndexes: querying columns: %w", err)
+		return fmt.Errorf("abalyzer.analyzeStringIndexes: querying columns: %w", err)
 	}
 
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
-		return r, fmt.Errorf("abalyzer.analyzeStringIndexes: querying indexes: %w", err)
+		return fmt.Errorf("abalyzer.analyzeStringIndexes: querying indexes: %w", err)
 	}
 
 	colsInIndex := make([]string, 0)
@@ -139,17 +136,17 @@ func (r Result) analyzeStringIndexes(db *sql.DB, table string) (Result, error) {
 		r.stringBasedIndexWarning = msg.String()
 		r.grade = grade.Dec(r.grade, 0.5)
 	}
-	return r, nil
+	return nil
 }
 
-func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error) {
+func (r *Result) analyzeCompositeIndexes(db *sql.DB, table string) error {
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
+		return fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
 	}
 	compIndexes, err := findCompositeIndexes(indexes)
 	if err != nil {
-		return r, fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
+		return fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
 	}
 
 	for name, compIdx := range compIndexes {
@@ -175,7 +172,7 @@ func (r Result) analyzeCompositeIndexes(db *sql.DB, table string) (Result, error
 	if len(r.compositeIndexWarnings) != 0 {
 		r.grade = grade.Dec(r.grade, 2)
 	}
-	return r, nil
+	return nil
 }
 
 // checkCardinality checks if columns in a composite index are ordered based on their cardinality
@@ -196,11 +193,11 @@ func checkCardinality(compIdx CompositeIndex) (optimalIndex CompositeIndex, ok b
 	return nil, true
 }
 
-func (r Result) Grade() float32 {
+func (r *Result) Grade() float32 {
 	return r.grade
 }
 
-func (r Result) String() string {
+func (r *Result) String() string {
 	var str strings.Builder
 	hasProblems := false
 	str.WriteString(fmt.Sprintf("grade: %0.2f/%0.2f\n", r.grade, grade.MaxGrade))
