@@ -21,10 +21,6 @@ AMD64=amd64
 ARM64=arm64
 ARM=arm
 
-# Version flag
-VERSION=0.0.1
-LDFLAGS=-ldflags "-X main.version=$(VERSION)"
-
 # Make all builds
 all: clean build-all
 
@@ -33,27 +29,27 @@ build-all: windows-amd64 windows-arm64 linux-amd64 linux-arm64 linux-arm darwin-
 
 # Windows builds
 windows-amd64:
-	GOOS=$(WINDOWS) GOARCH=$(AMD64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(AMD64) ./cmd
+	GOOS=$(WINDOWS) GOARCH=$(AMD64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(AMD64) ./cmd
 
 windows-arm64:
-	GOOS=$(WINDOWS) GOARCH=$(ARM64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(ARM64) ./cmd
+	GOOS=$(WINDOWS) GOARCH=$(ARM64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(ARM64) ./cmd
 
 # Linux builds
 linux-amd64:
-	GOOS=$(LINUX) GOARCH=$(AMD64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(AMD64) ./cmd
+	GOOS=$(LINUX) GOARCH=$(AMD64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(AMD64) ./cmd
 
 linux-arm64:
-	GOOS=$(LINUX) GOARCH=$(ARM64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(ARM64) ./cmd
+	GOOS=$(LINUX) GOARCH=$(ARM64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(ARM64) ./cmd
 
 linux-arm:
-	GOOS=$(LINUX) GOARCH=$(ARM) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(ARM) ./cmd
+	GOOS=$(LINUX) GOARCH=$(ARM) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(LINUX)-$(ARM) ./cmd
 
 # Darwin (macOS) builds
 darwin-amd64:
-	GOOS=$(DARWIN) GOARCH=$(AMD64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(DARWIN)-$(AMD64) ./cmd
+	GOOS=$(DARWIN) GOARCH=$(AMD64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(DARWIN)-$(AMD64) ./cmd
 
 darwin-arm64:
-	GOOS=$(DARWIN) GOARCH=$(ARM64) $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$(DARWIN)-$(ARM64) ./cmd
+	GOOS=$(DARWIN) GOARCH=$(ARM64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(DARWIN)-$(ARM64) ./cmd
 
 # Clean build files
 clean:
@@ -66,7 +62,7 @@ test:
 
 # Build for the current platform
 build:
-	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd
+	$(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd
 
 # Run the application
 run: build
