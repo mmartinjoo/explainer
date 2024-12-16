@@ -2,18 +2,16 @@ package tableanalyzer
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestAnalyzeTooLongTextColumns(t *testing.T) {
+func TestCheckTooLongTextColumns(t *testing.T) {
 	db := &sql.DB{}
 	res := newResult()
 
 	patches := gomonkey.ApplyFunc(queryTooLongTextColumns, func(db *sql.DB, table string) ([]TooLongTextColumn, error) {
-		fmt.Printf("------- Mock function --------\n")
 		return []TooLongTextColumn{
 			{col: Column{
 				name:     "c1",
@@ -28,4 +26,51 @@ func TestAnalyzeTooLongTextColumns(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, float32(4.75), res.grade)
 	assert.NotNil(t, res.tooLongTextColumnsWarning)
+}
+
+func TestCheckStringIndexes(t *testing.T) {
+	db := &sql.DB{}
+	res := newResult()
+
+	patches := gomonkey.ApplyFunc(queryStringColumns, func(db *sql.DB, table string) ([]Column, error) {
+		return []Column{
+			{name: "c1", dataType: "varchar(255)", key: "idx1"},
+			{name: "c2", dataType: "mediumtext", key: "idx2"},
+			{name: "c3", dataType: "text", key: "idx3"},
+		}, nil
+	})
+	patches = gomonkey.ApplyFunc(queryIndexes, func(db *sql.DB, table string) ([]Index, error) {
+		return []Index{
+			{
+				keyName:     "idx1",
+				indexType:   "BTREE",
+				seq:         1,
+				column:      "c1",
+				cardinality: 10,
+			},
+			{
+				keyName:     "idx2",
+				indexType:   "BTREE",
+				seq:         1,
+				column:      "c2",
+				cardinality: 10,
+			},
+			{
+				keyName:     "idx3",
+				indexType:   "FULLTEXT",
+				seq:         1,
+				column:      "c3",
+				cardinality: 10,
+			},
+		}, nil
+	})
+	defer patches.Reset()
+
+	err := res.checkStringIndexes(db, "table")
+	assert.Nil(t, err)
+	assert.Equal(t, float32(4.5), res.grade)
+	assert.NotNil(t, res.stringBasedIndexWarning)
+	assert.Contains(t, res.stringBasedIndexWarning, "c1")
+	assert.Contains(t, res.stringBasedIndexWarning, "c2")
+	assert.NotContains(t, res.stringBasedIndexWarning, "c3")
 }
