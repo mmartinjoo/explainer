@@ -64,11 +64,13 @@ jobs:
         run: zip -r binaries.zip bin/
       - name: Upload Release Assets
         run: |
+          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
           for file in bin/*; do
-            filename=$(basename "$file")
-            echo "Uploading $filename"
-            curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                 -H "Content-Type: application/octet-stream" \
-                 --data-binary @"$file" \
-                 "${{ steps.create_release.outputs.upload_url }}?name=$filename"
+          filename=$(basename "$file")
+          echo "Uploading $filename"
+          curl -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "Accept: application/vnd.github.v3+json" \
+            --data-binary @"$file" \
+            "${upload_url}?name=${filename}"
           done
