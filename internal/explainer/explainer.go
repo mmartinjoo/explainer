@@ -7,6 +7,7 @@ import (
 	"github.com/mmartinjoo/explainer/internal/platform"
 	"github.com/mmartinjoo/explainer/internal/platform/grade"
 	"log"
+	"os"
 	"slices"
 	"strings"
 )
@@ -48,7 +49,12 @@ type (
 )
 
 func Explain(db *sql.DB, logFilePath string) error {
-	queries, err := parseLogs(logFilePath)
+	f, err := os.Open(logFilePath)
+	if err != nil {
+		return fmt.Errorf("explainer.Explain: %w", err)
+	}
+
+	queries, err := parseLogs(f)
 	if err != nil {
 		return fmt.Errorf("explainer.Explain: %w", err)
 	}

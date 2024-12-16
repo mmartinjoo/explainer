@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"os"
+	"io"
 	"slices"
 	"strings"
 )
 
-func parseLogs(filename string) ([]Query, error) {
-	logs, err := readQueries(filename)
+func parseLogs(r io.Reader) ([]Query, error) {
+	logs, err := readQueries(r)
 	if err != nil {
 		return nil, fmt.Errorf("explainer.parseLogs: %w", err)
 	}
@@ -33,13 +33,9 @@ func parseLogs(filename string) ([]Query, error) {
 	return res, nil
 }
 
-func readQueries(filename string) ([]string, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("readQueries: %w", err)
-	}
+func readQueries(r io.Reader) ([]string, error) {
 	queries := make([]string, 0)
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		queries = append(queries, scanner.Text())
 	}
