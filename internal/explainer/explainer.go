@@ -160,20 +160,18 @@ func (r Result) analyzeAccessType() Result {
 		r.accessTypeWarning = `The query uses the "ALL" access type. It scans ALL rows from the disk without using an index. It will cause you trouble if you have a large number of records.`
 		r.grade = 1
 	case "index":
+		r.accessTypeWarning = `The query uses the "index" access type. It scans every node in the index BTREE which is pretty inefficient. It will cause you trouble if you have a large number of records. Fortunately, the "Extra" column contains "Using index" which means the query does not run a large number of extra I/O operations.`
+		r.grade = 2
 		if !r.explain.UsingIndex() {
 			r.accessTypeWarning = `Altough your query uses the "index" access type, the "Extra" column does not contain "Using index". It means you effectively do a FULL TABLE SCAN. First, the DB scans the whole BTREE index and then runs I/O operations for each node to satisfy the SELECT statement. It often happens when "SELECT *" is used. It will cause you trouble if you have a large number of records.`
 			r.grade = 1
-		} else {
-			r.accessTypeWarning = `The query uses the "index" access type. It scans every node in the index BTREE which is pretty inefficient. It will cause you trouble if you have a large number of records. Fortunately, the "Extra" column contains "Using index" which means the query does not run a large number of extra I/O operations.`
-			r.grade = 2
 		}
 	case "range":
+		r.accessTypeWarning = ""
+		r.grade = 4
 		if !r.explain.UsingIndex() {
 			r.accessTypeWarning = `Altough your query uses the "range" access type, the "Extra" column does not contain "Using index". It means you run unnecessary I/O operations. First, the DB scans the BTREE index for matching rows and then it runs I/O operations for each node. It can be slower if you have a large number of records.`
 			r.grade = 3
-		} else {
-			r.accessTypeWarning = ""
-			r.grade = 4
 		}
 	case "const":
 	case "ref":
@@ -185,11 +183,11 @@ func (r Result) analyzeAccessType() Result {
 
 func (r Result) analyzeFilteredRows() Result {
 	if r.explain.Filtered.Float64 < 50 {
+		r.grade = grade.Dec(r.grade, 1)
 		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
+
 		if r.explain.Filtered.Float64 < 33 {
-			r.grade = max(grade.MinGrade, r.grade-2)
-		} else {
-			r.grade = max(grade.MinGrade, r.grade-1)
+			r.grade = grade.Dec(r.grade, 1)
 		}
 	}
 	return r
