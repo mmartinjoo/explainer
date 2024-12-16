@@ -10,3 +10,6 @@ build-all: build
 
 run: build
 	bin/explainer-macos-arm64
+
+test:
+	go test ./...
