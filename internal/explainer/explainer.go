@@ -76,7 +76,7 @@ func Explain(db *sql.DB, logFilePath string) error {
 	}
 
 	for _, res := range results {
-		platform.PrintResults(res)
+		platform.PrintResults(&res)
 	}
 
 	log.Printf("%d unique queries were analyzed", len(explains))
@@ -91,19 +91,17 @@ func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)
-		res = res.analyzeAccessType()
-		res = res.analyzeFilteredRows()
-		res = res.analyzeFilesort()
-		res = res.analyzeTempTable()
-		res = res.analyzeLikePattern()
-		res = res.analyzeSelectStar()
-		res = res.analyzeSubqueryInSelect()
-		res, err := res.analyzeJoinOrder(db)
-		if err != nil {
+		res.analyzeAccessType()
+		res.analyzeFilteredRows()
+		res.analyzeFilesort()
+		res.analyzeTempTable()
+		res.analyzeLikePattern()
+		res.analyzeSelectStar()
+		res.analyzeSubqueryInSelect()
+		if err := res.analyzeJoinOrder(db); err != nil {
 			log.Printf("unable to analyze join order: %s. Query: \"%s\"", err, e.Query.SQL)
 		}
-
-		results = append(results, res)
+		results = append(results, *res)
 	}
 
 	slices.SortFunc(results, func(a, b Result) int {
@@ -118,11 +116,11 @@ func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	return results, nil
 }
 
-func (r Result) Grade() float32 {
+func (r *Result) Grade() float32 {
 	return r.grade
 }
 
-func (r Result) String() string {
+func (r *Result) String() string {
 	var str strings.Builder
 	str.WriteString(fmt.Sprintf("Query: %s\n", r.explain.Query.SQL))
 	str.WriteString(fmt.Sprintf("grade: %0.2f/%0.2f\n", r.grade, grade.MaxGrade))
@@ -154,7 +152,7 @@ func (r Result) String() string {
 	return str.String()
 }
 
-func (r Result) analyzeAccessType() Result {
+func (r *Result) analyzeAccessType() {
 	switch strings.ToLower(r.explain.QueryType.String) {
 	case "all":
 		r.accessTypeWarning = `The query uses the "ALL" access type. It scans ALL rows from the disk without using an index. It will cause you trouble if you have a large number of records.`
@@ -178,10 +176,9 @@ func (r Result) analyzeAccessType() Result {
 		r.accessTypeWarning = ""
 		r.grade = 5
 	}
-	return r
 }
 
-func (r Result) analyzeFilteredRows() Result {
+func (r *Result) analyzeFilteredRows() {
 	if r.explain.Filtered.Float64 < 50 {
 		r.grade = grade.Dec(r.grade, 1)
 		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
@@ -190,49 +187,44 @@ func (r Result) analyzeFilteredRows() Result {
 			r.grade = grade.Dec(r.grade, 1)
 		}
 	}
-	return r
 }
 
-func (r Result) analyzeFilesort() Result {
+func (r *Result) analyzeFilesort() {
 	if r.explain.UsingFilesort() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.filesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
 	}
-	return r
 }
 
-func (r Result) analyzeTempTable() Result {
+func (r *Result) analyzeTempTable() {
 	if r.explain.UsingTemporary() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.tempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
 	}
-	return r
 }
 
-func (r Result) analyzeSelectStar() Result {
+func (r *Result) analyzeSelectStar() {
 	if r.explain.Query.HasSelectStar() {
 		r.grade = grade.Dec(r.grade, 0.25)
 		r.selectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
 	}
-	return r
 }
 
-func (r Result) analyzeLikePattern() Result {
+func (r *Result) analyzeLikePattern() {
 	if r.explain.Query.HasLikePattern() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.likePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
 	}
-	return r
 }
 
-func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
+func (r *Result) analyzeJoinOrder(db *sql.DB) error {
 	tables := getJoinedTables(r.explain.Query.SQL)
 	counts := make([]int, len(tables))
 
 	for i, t := range tables {
 		count, err := countRows(db, t)
 		if err != nil {
-			return r, fmt.Errorf("explainer.analyeJoinOrder: %w", err)
+			return fmt.Errorf("explainer.analyeJoinOrder: %w", err)
 		}
 		counts[i] = count
 	}
@@ -246,16 +238,14 @@ func (r Result) analyzeJoinOrder(db *sql.DB) (Result, error) {
 		r.grade = grade.Dec(r.grade, 0.25)
 		r.joinOrderWarning = "Tables in the query might be joined in a suboptimal way. MySQL can perform better if you join smaller tables earlier and larger ones later. If it's possible, of course."
 	}
-
-	return r, nil
+	return nil
 }
 
-func (r Result) analyzeSubqueryInSelect() Result {
+func (r *Result) analyzeSubqueryInSelect() {
 	if r.explain.Query.HasSubqueryInSelect() {
 		r.grade = grade.Dec(r.grade, 2)
 		r.subqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
 	}
-	return r
 }
 
 func getJoinedTables(sql string) []string {
@@ -299,8 +289,8 @@ func countRows(db *sql.DB, table string) (int, error) {
 	return count, nil
 }
 
-func newResult(expl ExplainResult) Result {
-	return Result{
+func newResult(expl ExplainResult) *Result {
+	return &Result{
 		explain: expl,
 		grade:   5,
 	}
