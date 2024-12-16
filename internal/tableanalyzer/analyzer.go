@@ -19,22 +19,11 @@ type (
 		grade                     float32
 	}
 
-	Index struct {
-		keyName     string
-		indexType   string
-		seq         int64
-		column      string
-		cardinality int64
-	}
-
 	Column struct {
 		name     string
 		dataType string
 		key      string
 	}
-
-	CompositeIndexes map[string][]Index
-	CompositeIndex   []Index
 )
 
 func newResult() Result {

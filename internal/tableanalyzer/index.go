@@ -2,6 +2,18 @@ package tableanalyzer
 
 import "slices"
 
+type (
+	Index struct {
+		keyName     string
+		indexType   string
+		seq         int64
+		column      string
+		cardinality int64
+	}
+	CompositeIndexes map[string][]Index
+	CompositeIndex   []Index
+)
+
 func findCompositeIndexes(indexes []Index) (CompositeIndexes, error) {
 	hmap := make(CompositeIndexes)
 	for _, idx := range indexes {
