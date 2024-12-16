@@ -11,7 +11,7 @@ func TestAnalyzeAccessType_All(t *testing.T) {
 		QueryType: sql.NullString{String: "ALL"},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.NotEmpty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(1), res.Grade())
@@ -23,7 +23,7 @@ func TestAnalyzeAccessType_IndexWithoutExtra(t *testing.T) {
 		Extra:     sql.NullString{String: ""},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.NotEmpty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(1), res.Grade())
@@ -35,7 +35,7 @@ func TestAnalyzeAccessType_IndexWithExtra(t *testing.T) {
 		Extra:     sql.NullString{String: "Using index"},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.NotEmpty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(2), res.Grade())
@@ -47,7 +47,7 @@ func TestAnalyzeAccessType_RangeWithoutExtra(t *testing.T) {
 		Extra:     sql.NullString{String: ""},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.NotEmpty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(3), res.Grade())
@@ -59,7 +59,7 @@ func TestAnalyzeAccessType_RangeWithExtra(t *testing.T) {
 		Extra:     sql.NullString{String: "Using index"},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.Empty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(4), res.Grade())
@@ -70,7 +70,7 @@ func TestAnalyzeAccessType_Const(t *testing.T) {
 		QueryType: sql.NullString{String: "const"},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.Empty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(5), res.Grade())
@@ -81,7 +81,7 @@ func TestAnalyzeAccessType_Ref(t *testing.T) {
 		QueryType: sql.NullString{String: "ref"},
 	}
 	res := newResult(expl)
-	res.analyzeAccessType()
+	res.checkAccessType()
 
 	assert.Empty(t, res.accessTypeWarning)
 	assert.Equal(t, float32(5), res.Grade())
@@ -93,7 +93,7 @@ func TestAnalyzeFilteredRows_Low(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeFilteredRows()
+	res.checkFilteredRows()
 
 	assert.NotEmpty(t, res.filterWarning)
 	assert.Equal(t, float32(4), res.Grade())
@@ -105,7 +105,7 @@ func TestAnalyzeFilteredRows_VeryLow(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeFilteredRows()
+	res.checkFilteredRows()
 
 	assert.NotEmpty(t, res.filterWarning)
 	assert.Equal(t, float32(3), res.Grade())
@@ -117,7 +117,7 @@ func TestAnalyzeFileSort(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeFilesort()
+	res.checkFilesort()
 
 	assert.NotEmpty(t, res.filesortWarning)
 	assert.Equal(t, float32(4.5), res.Grade())
@@ -129,7 +129,7 @@ func TestAnalyzeSelectStar(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeSelectStar()
+	res.checkSelectStar()
 
 	assert.NotEmpty(t, res.selectStarWarning)
 	assert.Equal(t, float32(4.75), res.Grade())
@@ -141,7 +141,7 @@ func TestAnalyzeLikePattern(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeLikePattern()
+	res.checkLikePattern()
 
 	assert.NotEmpty(t, res.likePatternWarning)
 	assert.Equal(t, float32(4.5), res.Grade())
@@ -153,7 +153,7 @@ func TestAnalyzeSubqueryInSelect(t *testing.T) {
 	}
 	res := newResult(expl)
 	res.grade = 5
-	res.analyzeSubqueryInSelect()
+	res.checkSubqueryInSelect()
 
 	assert.NotEmpty(t, res.subqueryInSelectWarning)
 	assert.Equal(t, float32(3), res.Grade())

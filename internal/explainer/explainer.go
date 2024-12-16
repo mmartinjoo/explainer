@@ -1,3 +1,15 @@
+// Package explainer is responsible for analyzing a log file full of SQL queries and explaining them using EXPLAIN
+//
+// Usage:
+//
+// db, _ := sql.Open("mysql", "<connectionString>")
+//
+//	if err := explainer.Explain(db, "./queries.log"); err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// This will print out the results to stdout
+// The private [check] will return the a [Result] object instead of printing the results
 package explainer
 
 import (
@@ -48,6 +60,11 @@ type (
 	}
 )
 
+// Explain is the main entrypoint of the package:
+//   - Parses the log file
+//   - Runs the EXPLAIN queries
+//   - Runs the checks
+//   - Prints the result to stdout
 func Explain(db *sql.DB, logFilePath string) error {
 	f, err := os.Open(logFilePath)
 	if err != nil {
@@ -70,7 +87,7 @@ func Explain(db *sql.DB, logFilePath string) error {
 		tooManyConnectionsErr = err
 	}
 
-	results, err := analyze(db, explains)
+	results, err := check(db, explains)
 	if err != nil {
 		return fmt.Errorf("explainer.Explain: %w", err)
 	}
@@ -87,19 +104,20 @@ func Explain(db *sql.DB, logFilePath string) error {
 	return nil
 }
 
-func analyze(db *sql.DB, explains []ExplainResult) ([]Result, error) {
+// check runs all the checks and returns a [Result] slice ordered by grade
+func check(db *sql.DB, explains []ExplainResult) ([]Result, error) {
 	var results []Result
 	for _, e := range explains {
 		res := newResult(e)
-		res.analyzeAccessType()
-		res.analyzeFilteredRows()
-		res.analyzeFilesort()
-		res.analyzeTempTable()
-		res.analyzeLikePattern()
-		res.analyzeSelectStar()
-		res.analyzeSubqueryInSelect()
-		if err := res.analyzeJoinOrder(db); err != nil {
-			log.Printf("unable to analyze join order: %s. Query: \"%s\"", err, e.Query.SQL)
+		res.checkAccessType()
+		res.checkFilteredRows()
+		res.checkFilesort()
+		res.checkTempTable()
+		res.checkLikePattern()
+		res.checkSelectStar()
+		res.checkSubqueryInSelect()
+		if err := res.checkJoinOrder(db); err != nil {
+			log.Printf("unable to check join order: %s. Query: \"%s\"", err, e.Query.SQL)
 		}
 		results = append(results, *res)
 	}
@@ -152,7 +170,8 @@ func (r *Result) String() string {
 	return str.String()
 }
 
-func (r *Result) analyzeAccessType() {
+// checkAccessType checks for and provides information about the access type of a query and other useful information from the EXTRA column
+func (r *Result) checkAccessType() {
 	switch strings.ToLower(r.explain.QueryType.String) {
 	case "all":
 		r.accessTypeWarning = `The query uses the "ALL" access type. It scans ALL rows from the disk without using an index. It will cause you trouble if you have a large number of records.`
@@ -178,7 +197,8 @@ func (r *Result) analyzeAccessType() {
 	}
 }
 
-func (r *Result) analyzeFilteredRows() {
+// checkFilteredRows checks for and provides information about the rows and filtered columns of EXPLAIN
+func (r *Result) checkFilteredRows() {
 	if r.explain.Filtered.Float64 < 50 {
 		r.grade = grade.Dec(r.grade, 1)
 		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
@@ -189,35 +209,43 @@ func (r *Result) analyzeFilteredRows() {
 	}
 }
 
-func (r *Result) analyzeFilesort() {
+// checkFilesort checks for and provides information about "Using filesort" in the extra column
+func (r *Result) checkFilesort() {
 	if r.explain.UsingFilesort() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.filesortWarning = "The query uses \"filesort\". It means that the DB cannot use the BTREE index to sort the results. It needs to copy the keys and then sort them separately. This can happen in-memory or on the disk. You probably sort or group based on a column that is not part of an index."
 	}
 }
 
-func (r *Result) analyzeTempTable() {
+// checkTempTable checks for and provides information about "Using temporary" in the extra column
+func (r *Result) checkTempTable() {
 	if r.explain.UsingTemporary() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.tempTableWarning = "The query uses a \"temporary table\". The DB must create an in-memory or on-disk temporary table to hold intermediate results. It often happens when you use ORDER BY and GROUP BY together, especially when functions like COUNT() is used."
 	}
 }
 
-func (r *Result) analyzeSelectStar() {
+// checkSelectStar checks for and provides information about SELECT * type queries
+func (r *Result) checkSelectStar() {
 	if r.explain.Query.HasSelectStar() {
 		r.grade = grade.Dec(r.grade, 0.25)
 		r.selectStarWarning = "The query uses \"SELECT *\" which is usually not the best idea. It can increase the number of I/O operations, it uses more memory, makes TCP connections slower, and generally speaking slows down your query. If it's possible select only specific columns."
 	}
 }
 
-func (r *Result) analyzeLikePattern() {
+// checkLikePattern checks for and provides information about LIKE % type queries
+func (r *Result) checkLikePattern() {
 	if r.explain.Query.HasLikePattern() {
 		r.grade = grade.Dec(r.grade, 0.5)
 		r.likePatternWarning = "The query has a \"LIKE %\" pattern in it which is usually not the most optimal solution. Consider using full-text index and full-text search."
 	}
 }
 
-func (r *Result) analyzeJoinOrder(db *sql.DB) error {
+// checkJoinOrder checks for and provides information about the order of JOIN statements:
+//   - It parses the table names from the query
+//   - Checks which table has how many rows running COUNT queries
+//   - Checks if the tables are ascending order by record count
+func (r *Result) checkJoinOrder(db *sql.DB) error {
 	tables := getJoinedTables(r.explain.Query.SQL)
 	counts := make([]int, len(tables))
 
@@ -241,13 +269,22 @@ func (r *Result) analyzeJoinOrder(db *sql.DB) error {
 	return nil
 }
 
-func (r *Result) analyzeSubqueryInSelect() {
+// checkSubqueryInSelect checks for and provides information about "select users.id, (select ...) as foo" type queries
+func (r *Result) checkSubqueryInSelect() {
 	if r.explain.Query.HasSubqueryInSelect() {
 		r.grade = grade.Dec(r.grade, 2)
 		r.subqueryInSelectWarning = "Usually, it's not a good idea to have a subquery in the SELECT clause. The database *might* run an additional query for every row in the result set. If your result contains 1,000 rows you might execute 1,000 additional SELECT queries. It's an N+1 query problem at the DB level."
 	}
 }
 
+// getJoinedTables returns the table names from the JOIN statements
+//
+// For example:
+//
+// select * from users join orders on orders.user_id = users.id join order_items on order_items.order_id = orders.id
+//
+// Returns: {"orders", "order_items"}
+// TODO: can use a SQL parser
 func getJoinedTables(sql string) []string {
 	tables := make([]string, 0)
 	sqlLower := strings.ToLower(sql)
@@ -273,6 +310,7 @@ func getJoinedTables(sql string) []string {
 	return tables
 }
 
+// countRows returns the number of rows in a table
 func countRows(db *sql.DB, table string) (int, error) {
 	rows, err := db.Query(fmt.Sprintf("select count(*) from %s", table))
 	if err != nil {
