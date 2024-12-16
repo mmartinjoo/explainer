@@ -184,9 +184,13 @@ func (r Result) analyzeAccessType() Result {
 }
 
 func (r Result) analyzeFilteredRows() Result {
-	if r.explain.Filtered.Float64 < 50.0 {
-		r.grade = max(grade.MinGrade, r.grade-1)
+	if r.explain.Filtered.Float64 < 50 {
 		r.filterWarning = fmt.Sprintf("This query causes the DB to scan through %d rows but only returns %f%% of it. It usually happens when you have a composite index and the column order is not optimal. Or in the case of a full table scan.", r.explain.NumberOfRows.Int64, r.explain.Filtered.Float64)
+		if r.explain.Filtered.Float64 < 33 {
+			r.grade = max(grade.MinGrade, r.grade-2)
+		} else {
+			r.grade = max(grade.MinGrade, r.grade-1)
+		}
 	}
 	return r
 }
