@@ -9,7 +9,7 @@
 //	}
 //
 // This will print out the results to stdout
-// The private [check] will return the a [Result] object instead of printing the results
+// The private [check] will return a [Result] object instead of printing the results
 package explainer
 
 import (

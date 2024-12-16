@@ -1,3 +1,15 @@
+// Package tableanalyzer is responsible for analyzing a table based on its columns and indexes
+//
+// Usage:
+//
+// db, _ := sql.Open("mysql", "<connectionString>")
+//
+//	if err := tableanalyzer.Analyze(db, "./queries.log"); err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// This will print out the results to stdout
+// The private [check] will return a [Result] object instead of printing the results
 package tableanalyzer
 
 import (
@@ -35,7 +47,7 @@ func newResult() Result {
 func Analyze(db *sql.DB, table string) error {
 	log.Printf("Analyzing %s...\n", table)
 
-	res, err := analyze(db, table)
+	res, err := check(db, table)
 	if err != nil {
 		return fmt.Errorf("tableanalyzer.Analyze: %w", err)
 	}
@@ -44,24 +56,30 @@ func Analyze(db *sql.DB, table string) error {
 	return nil
 }
 
-func analyze(db *sql.DB, table string) (Result, error) {
+func check(db *sql.DB, table string) (Result, error) {
 	res := newResult()
-	if err := res.analyzeCompositeIndexes(db, table); err != nil {
-		return res, fmt.Errorf("parser.analyze: %w", err)
+	if err := res.checkCompositeIndexes(db, table); err != nil {
+		return res, fmt.Errorf("tableanalyzer.check: %w", err)
 	}
-	if err := res.analyzeStringIndexes(db, table); err != nil {
-		return res, fmt.Errorf("parser.analyze: %w", err)
+	if err := res.checkStringIndexes(db, table); err != nil {
+		return res, fmt.Errorf("tableanalyzer.check: %w", err)
 	}
-	if err := res.analyzeTooLongTextColumns(db, table); err != nil {
-		return res, fmt.Errorf("parser.analyze: %w", err)
+	if err := res.checkTooLongTextColumns(db, table); err != nil {
+		return res, fmt.Errorf("tableanalyzer.check: %w", err)
 	}
 	return res, nil
 }
 
-func (r *Result) analyzeTooLongTextColumns(db *sql.DB, table string) error {
+// checkTooLongTextColumns checks if a column is too long compared the data it stores
+//
+// For example:
+//   - If a column is mediumtext (can store up to 16m characters)
+//   - But the longest string is 5000 characters
+//   - It will mark this as a warning
+func (r *Result) checkTooLongTextColumns(db *sql.DB, table string) error {
 	cols, err := queryTooLongTextColumns(db, table)
 	if err != nil {
-		return fmt.Errorf("analyzer.analyzeTooLongTextColumns: %w", err)
+		return fmt.Errorf("analyzer.checkTooLongTextColumns: %w", err)
 	}
 
 	if len(cols) != 0 {
@@ -76,15 +94,16 @@ func (r *Result) analyzeTooLongTextColumns(db *sql.DB, table string) error {
 	return nil
 }
 
-func (r *Result) analyzeStringIndexes(db *sql.DB, table string) error {
+// checkStringIndexes checks if varchar, text, mediumtext, etc columns are being used in indexes
+func (r *Result) checkStringIndexes(db *sql.DB, table string) error {
 	stringCols, err := queryStringColumns(db, table)
 	if err != nil {
-		return fmt.Errorf("abalyzer.analyzeStringIndexes: querying columns: %w", err)
+		return fmt.Errorf("abalyzer.checkStringIndexes: querying columns: %w", err)
 	}
 
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
-		return fmt.Errorf("abalyzer.analyzeStringIndexes: querying indexes: %w", err)
+		return fmt.Errorf("abalyzer.checkStringIndexes: querying indexes: %w", err)
 	}
 
 	colsInIndex := make([]string, 0)
@@ -110,14 +129,15 @@ func (r *Result) analyzeStringIndexes(db *sql.DB, table string) error {
 	return nil
 }
 
-func (r *Result) analyzeCompositeIndexes(db *sql.DB, table string) error {
+// checkCompositeIndexes checks if columns are in the right order based on their cardinality
+func (r *Result) checkCompositeIndexes(db *sql.DB, table string) error {
 	indexes, err := queryIndexes(db, table)
 	if err != nil {
-		return fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
+		return fmt.Errorf("analyzer.checkCompositeIndexes: %w", err)
 	}
 	compIndexes, err := findCompositeIndexes(indexes)
 	if err != nil {
-		return fmt.Errorf("analyzer.analyzeCompositeIndexes: %w", err)
+		return fmt.Errorf("analyzer.checkCompositeIndexes: %w", err)
 	}
 
 	for name, compIdx := range compIndexes {

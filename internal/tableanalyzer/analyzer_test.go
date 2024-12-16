@@ -24,7 +24,7 @@ func TestAnalyzeTooLongTextColumns(t *testing.T) {
 	})
 	defer patches.Reset()
 
-	err := res.analyzeTooLongTextColumns(db, "table")
+	err := res.checkTooLongTextColumns(db, "table")
 	assert.Nil(t, err)
 	assert.Equal(t, float32(4.75), res.grade)
 	assert.NotNil(t, res.tooLongTextColumnsWarning)
