@@ -28,7 +28,7 @@ wget https://github.com/mmartinjoo/explainer/releases/download/v0.0.1/myexplaine
 
 Check out the [available binaries](https://github.com/mmartinjoo/explainer/releases) for your specific platform.
 
-Or build from source:
+Or build from source (needs go 1.23):
 ```
 git clone https://github.com/mmartinjoo/explainer
 cd explainer
