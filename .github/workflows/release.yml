@@ -54,7 +54,7 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           release_name: ${{ steps.get_version.outputs.VERSION }}
@@ -64,11 +64,10 @@ jobs:
         run: |
           upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
           for file in bin/*; do
-          filename=$(basename "$file")
           echo "Uploading $filename"
           curl -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             -H "Accept: application/vnd.github.v3+json" \
             --data-binary @"$file" \
-            "${upload_url}?name=${filename}"
+            "${upload_url}?name=${file}"
           done
