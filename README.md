@@ -46,15 +46,25 @@ analyzes the table structure and gives you performance-related warnings, if any.
 
 reads a log file in which every line contains a SQL query and analyzes them using EXPLAIN and gives you detailed information and tips
 
-Examples:
+### Examples
+
+**Analyzing a table**
 
 ``myexplainer --database analytics table page_views`` 
 
-will analyze the 'page_views' table in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default)
+will analyze the 'page_views' table in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default).
+
+The output:
+![output](https://i.ibb.co/7GTFCGF/myexplainer-logs.png)
+
+**Analyzing a query log file**
 
 ``myexplainer --database analytics logs ./queries.log`` 
 
-will read the 'queries.log' file, parse the queries that it contains and then run EXPLAIN queries in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default)
+will read the 'queries.log' file, parse the queries that it contains and then run EXPLAIN queries in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default).
+
+The output:
+![output](https://i.ibb.co/wyg2qM0/myexplainer-table.png)
 
 A log file can look like this:
 ```
@@ -85,3 +95,5 @@ Using all flags:
 ```
 myexplainer --host localhost --port 33060 --user admin --pass asdf1234 --database test 
 ```
+
+*myexplainer is not battle tested yet. If you encounter a bug, please open an issue.*

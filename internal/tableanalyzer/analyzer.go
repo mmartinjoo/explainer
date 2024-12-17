@@ -156,7 +156,7 @@ func (r *Result) checkCompositeIndexes(db *sql.DB, table string) error {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprintf("'%s' is suboptimal. Columns are not ordered based on their cardinality which can result in expensive queries\n", name))
 			msg.WriteString(fmt.Sprintf("The optimal column order should be: %v\n", optimalColOrder))
-			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n", actualColOrder))
+			msg.WriteString(fmt.Sprintf("But the actual column order is: %v\n\n", actualColOrder))
 			r.compositeIndexWarnings = append(r.compositeIndexWarnings, msg.String())
 		}
 	}
