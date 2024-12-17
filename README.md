@@ -63,20 +63,25 @@ select * from `page_views` where `id` IN (?,?,?) [100,200,300]
 [2024-12-13 20:06:25] local.INFO: select * from `page_views`
 ```
 
-The format of a line doesn't matter until it contains a SELECT query. If the long entries contain value bindings they must look like this:
+The format of a line doesn't matter until it contains a `SELECT` query. If a log entry contains value bindings they must look like this:
 ```
 select * from users where id = ? [1]
 select * from users where id in (?,?) [1,2]
 ```
 
-Placeholders must be `?` bindings are wrapped in `()` separated by `,`
+Placeholders must be `?` they are wrapped in `()` separated by `,` values are wrapped in `[]` separated by `,`
 
 Flags:
 
-- --database string Database name
-- --help Show help message
-- --host string Host address (default "localhost")
-- --pass string Password (default "root")
-- --port int Host port (default 3306)
-- --user string Username (default "root")
-- --version Show version
+- `--host` `string` Host address (default "localhost")
+- `--port` `int` Host port (default 3306)
+- `--user` `string` Username (default "root")
+- `--pass` `string` Password (default "root")
+- `--database` `string` Database name
+- `--version` Show version
+- `--help` Show help message
+
+Using all flags:
+```
+myexplainer --host localhost --port 33060 --user admin --pass asdf1234 --database test 
+```
