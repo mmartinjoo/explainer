@@ -36,39 +36,30 @@ jobs:
         with:
           name: binaries
           path: bin/*
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: binaries
-          path: bin
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN}}
-        with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: ${{ steps.get_version.outputs.VERSION }}
-          draft: false
-          prerelease: false
-      - name: Upload Win AMD64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./bin/myexplainer-windows-amd64
-          asset_name: myexplainer-windows-amd64
-          asset_content_type: application/octet-stream
+#
+#  release:
+#    needs: build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: binaries
+#          path: bin
+#      - name: Get the version
+#        id: get_version
+#        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+#      - name: Create Release
+#        id: create_release
+#        uses: actions/create-release@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN}}
+#        with:
+#          tag_name: ${{ steps.get_version.outputs.VERSION }}
+#          release_name: ${{ steps.get_version.outputs.VERSION }}
+#          draft: false
+#          prerelease: false
 #      - name: Upload Release Assets
 #        run: |
 #          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
