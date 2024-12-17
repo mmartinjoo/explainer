@@ -62,12 +62,14 @@ jobs:
           prerelease: false
       - name: Upload Release Assets
         run: |
-          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
+          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}")
           for file in ./bin/*; do
           filename=$(basename "$file")
+          full_url="${upload_url}?name=${filename}"
           echo "filename= $filename"
           echo "file= $file"
           echo "upload url= $upload_url"
+          echo "full url= $full_url"
           curl -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             -H "Accept: application/vnd.github.v3+json" \
