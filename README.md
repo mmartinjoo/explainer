@@ -56,6 +56,15 @@ will analyze the 'page_views' table in the 'analytics' database on 'localhost' (
 
 will read the 'queries.log' file, parse the queries that it contains and then run EXPLAIN queries in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default)
 
+A log file can look like this:
+```
+[2024-12-13 20:05:44] select * from `page_views` where `id` = ? [100]
+select * from `page_views` where `id` IN (?,?,?) [100,200,300]
+[2024-12-13 20:06:25] local.INFO: select * from `page_views`
+```
+
+The format of a line doesn't matter until it contains a SELECT query.
+
 Flags:
 
 - --database string Database name
