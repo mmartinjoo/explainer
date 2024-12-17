@@ -19,6 +19,23 @@ The program gives you detailed explanations and tips on how to improve your quer
 
 ## Install
 
+Download the binary for your OS.
+
+MacOS (ARM 64bit):
+```
+wget https://github.com/mmartinjoo/explainer/releases/download/v0.0.1/myexplainer-darwin-arm64
+```
+
+Check out the [available binaries](https://github.com/mmartinjoo/explainer/releases) for your specific platform.
+
+Or build from source:
+```
+git clone https://github.com/mmartinjoo/explainer
+cd explainer
+make build
+./bin/<filename>
+```
+
 ## Usage
 
 ``myexplainer table {tablename}`` 

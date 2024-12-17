@@ -29,10 +29,10 @@ build-all: windows-amd64 windows-arm64 linux-amd64 linux-arm64 linux-arm darwin-
 
 # Windows builds
 windows-amd64:
-	GOOS=$(WINDOWS) GOARCH=$(AMD64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(AMD64) ./cmd
+	GOOS=$(WINDOWS) GOARCH=$(AMD64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(AMD64).exe ./cmd
 
 windows-arm64:
-	GOOS=$(WINDOWS) GOARCH=$(ARM64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(ARM64) ./cmd
+	GOOS=$(WINDOWS) GOARCH=$(ARM64) $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-$(WINDOWS)-$(ARM64).exe ./cmd
 
 # Linux builds
 linux-amd64:
