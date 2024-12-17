@@ -44,7 +44,7 @@ analyzes the table structure and gives you performance-related warnings, if any.
 
 ``myexplainer logs {path}`` 
 
-reads a log file in which every line contains a SQL query and analyzes them using EXPLAIN and gives you detailed information and tips
+reads a log file in which every line contains a SQL query and analyzes them using `EXPLAIN` and gives you detailed information and tips
 
 ### Examples
 
@@ -55,16 +55,16 @@ reads a log file in which every line contains a SQL query and analyzes them usin
 will analyze the 'page_views' table in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default).
 
 The output:
-![output](https://i.ibb.co/7GTFCGF/myexplainer-logs.png)
+![output](https://i.ibb.co/wyg2qM0/myexplainer-table.png)
 
 **Analyzing a query log file**
 
 ``myexplainer --database analytics logs ./queries.log`` 
 
-will read the 'queries.log' file, parse the queries that it contains and then run EXPLAIN queries in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default).
+will read the 'queries.log' file, parse the queries that it contains and then run `EXPLAIN` queries in the 'analytics' database on 'localhost' (default) with user 'root' (default) and password 'root' (default).
 
 The output:
-![output](https://i.ibb.co/wyg2qM0/myexplainer-table.png)
+![output](https://i.ibb.co/7GTFCGF/myexplainer-logs.png)
 
 A log file can look like this:
 ```
@@ -80,6 +80,22 @@ select * from users where id in (?,?) [1,2]
 ```
 
 Placeholders must be `?` they are wrapped in `()` separated by `,` values are wrapped in `[]` separated by `,`
+
+If you're using Laravel, add this to your `AppServiceProvider`:
+```php
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+DB::listen(function($query) {
+    Log::info(
+        $query->sql,
+        $query->bindings,
+        $query->time
+    );
+});
+```
+
+It will write your queries into a log file that you can feed into myexplainer.
 
 Flags:
 
