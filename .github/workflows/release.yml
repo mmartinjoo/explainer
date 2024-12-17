@@ -60,19 +60,28 @@ jobs:
           release_name: ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
-      - name: Upload Release Assets
-        run: |
-          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
-          for file in ./bin/*; do
-          filename=$(basename "$file")
-          full_url="${upload_url}?name=${filename}"
-          echo "filename= $filename"
-          echo "file= $file"
-          echo "upload url= $upload_url"
-          echo "full url= $full_url"
-          curl -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            -H "Accept: application/vnd.github.v3+json" \
-            --data-binary @"$file" \
-            "${upload_url}?name=${filename}"
-          done
+      - name: Upload Win AMD64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bin/myexplainer-windows-amd64
+          asset_name: myexplainer-windows-amd64
+          asset_content_type: application/octet-stream
+#      - name: Upload Release Assets
+#        run: |
+#          upload_url=$(echo "${{ steps.create_release.outputs.upload_url }}" | sed -e "s/{?name,label}//")
+#          for file in ./bin/*; do
+#          filename=$(basename "$file")
+#          full_url="${upload_url}?name=${filename}"
+#          echo "filename= $filename"
+#          echo "file= $file"
+#          echo "upload url= $upload_url"
+#          echo "full url= $full_url"
+#          curl -H "Authorization: token $GITHUB_TOKEN" \
+#            -H "Content-Type: application/octet-stream" \
+#            -H "Accept: application/vnd.github.v3+json" \
+#            --data-binary @"$file" \
+#            "${upload_url}?name=${filename}"
+#          done
