@@ -63,7 +63,13 @@ select * from `page_views` where `id` IN (?,?,?) [100,200,300]
 [2024-12-13 20:06:25] local.INFO: select * from `page_views`
 ```
 
-The format of a line doesn't matter until it contains a SELECT query.
+The format of a line doesn't matter until it contains a SELECT query. If the long entries contain value bindings they must look like this:
+```
+select * from users where id = ? [1]
+select * from users where id in (?,?) [1,2]
+```
+
+Placeholders must be `?` bindings are wrapped in `()` separated by `,`
 
 Flags:
 
